@@ -1,0 +1,17 @@
+.text-sd-easy,
+.text-sd-medium,
+.text-sd-hard,
+.text-difficulty-hard,
+.text-difficulty-medium,
+.text-difficulty-easy {
+  visibility: hidden !important;
+}
+
+body:not(.leetfocus-enabled) .text-sd-easy,
+body:not(.leetfocus-enabled) .text-sd-medium,
+body:not(.leetfocus-enabled) .text-sd-hard,
+body:not(.leetfocus-enabled) .text-difficulty-hard,
+body:not(.leetfocus-enabled) .text-difficulty-medium,
+body:not(.leetfocus-enabled) .text-difficulty-easy {
+  visibility: visible !important;
+}
