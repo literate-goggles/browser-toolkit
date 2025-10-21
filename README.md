@@ -4,6 +4,7 @@ LiterateGoggles is a personal browser toolkit for tweaking the way websites look
 
 ## What it can do today
 
+- Strip rank/file coordinate overlays from Aimchess chessboards when you’d rather rely on intuition.
 - Hide LeetCode problem difficulty labels until you want to see them.
 - Keep a global on/off switch so you can pause every tweak with a single click.
 - Offer a simple registry (`src/js/features.js`) where new ideas can be added without touching the rest of the codebase.
