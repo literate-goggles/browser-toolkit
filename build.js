@@ -58,7 +58,7 @@ console.log('Build completed successfully!');
 if (process.argv.includes('--zip')) {
   try {
     const archiver = require('archiver');
-    const output = fs.createWriteStream(path.join(__dirname, 'leetfocus.zip'));
+    const output = fs.createWriteStream(path.join(__dirname, 'literategoggles.zip'));
     const archive = archiver('zip', {
       zlib: { level: 9 }
     });

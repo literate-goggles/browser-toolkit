@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "LeetFocus",
+  "name": "LiterateGoggles",
   "version": "1.0.0",
-  "description": "Hide LeetCode problem difficulty to help you focus on solving problems without bias",
+  "description": "A flexible toolkit for tailoring the way websites look and behave",
   "permissions": ["storage", "scripting", "declarativeContent"],
-  "host_permissions": ["https://leetcode.com/*"],
+  "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -23,8 +23,8 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://leetcode.com/*"],
-      "js": ["js/content.js"],
+      "matches": ["<all_urls>"],
+      "js": ["js/features.js", "js/content.js"],
       "css": ["css/content.css"],
       "run_at": "document_start"
     }

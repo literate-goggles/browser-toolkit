@@ -1,65 +1,109 @@
-const CONFIG = {
-  storageKey: 'leetfocusEnabled',
-  bodyClassName: 'leetfocus-enabled'
-};
+const LiterateGogglesRuntime = globalThis.LiterateGoggles || {};
+const GLOBAL_STORAGE_KEY = LiterateGogglesRuntime.globalStorageKey || 'literategoggles.globalEnabled';
+const REGISTERED_FEATURES = Array.isArray(LiterateGogglesRuntime.features) ? LiterateGogglesRuntime.features : [];
 
-function applyInitialState() {
-  document.body.classList.add(CONFIG.bodyClassName);
-}
+const storageState = {};
+const featureStates = new Map();
 
-function toggleDifficultyVisibility(hide) {
-  if (hide) {
-    document.body.classList.add(CONFIG.bodyClassName);
+const bodyReady = new Promise((resolve) => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => resolve(document.body), { once: true });
   } else {
-    document.body.classList.remove(CONFIG.bodyClassName);
+    resolve(document.body);
   }
-}
-
-
-function initialize() {
-  chrome.storage.sync.get([CONFIG.storageKey], (result) => {
-    const isEnabled = result[CONFIG.storageKey] !== false;
-    
-    if (!isEnabled) {
-      document.body.classList.remove(CONFIG.bodyClassName);
-    }
-  });
-  
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'sync' && changes[CONFIG.storageKey]) {
-      toggleDifficultyVisibility(changes[CONFIG.storageKey].newValue);
-    }
-  });
-}
-
-
-function setupObserver() {
-  const observer = new MutationObserver(() => {
-    chrome.storage.sync.get([CONFIG.storageKey], ({ leetfocusEnabled }) => {
-      const isEnabled = leetfocusEnabled !== false;
-      
-      if (document.body && !isEnabled) {
-        document.body.classList.remove(CONFIG.bodyClassName);
-      }
-    });
-  });
-  
-  observer.observe(document.body, { 
-    childList: true, 
-    subtree: true 
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  if (document.body) {
-    applyInitialState();
-  }
-  initialize();
-  setupObserver();
 });
 
-if (document.body) {
-  applyInitialState();
+function isGlobalEnabled() {
+  if (typeof storageState[GLOBAL_STORAGE_KEY] === 'boolean') {
+    return storageState[GLOBAL_STORAGE_KEY];
+  }
+  return true;
 }
-initialize();
-setupObserver();
+
+function readFeatureState(feature) {
+  if (feature && typeof storageState[feature.storageKey] === 'boolean') {
+    return storageState[feature.storageKey];
+  }
+  return feature?.defaultEnabled !== false;
+}
+
+function isFeatureApplicable(feature) {
+  if (!feature) {
+    return false;
+  }
+  if (typeof feature.appliesTo === 'function') {
+    try {
+      return feature.appliesTo(window.location);
+    } catch (err) {
+      console.warn('Literategoggles feature applicability check failed:', err);
+      return false;
+    }
+  }
+  return true;
+}
+
+function applyFeature(feature, shouldEnable) {
+  bodyReady.then((body) => {
+    if (!body || !feature) {
+      return;
+    }
+
+    const previousState = featureStates.get(feature.id);
+    if (previousState === shouldEnable) {
+      return;
+    }
+
+    if (shouldEnable) {
+      if (typeof feature.onEnable === 'function') {
+        feature.onEnable({ document, window });
+      }
+    } else if (typeof feature.onDisable === 'function') {
+      feature.onDisable({ document, window });
+    }
+
+    featureStates.set(feature.id, shouldEnable);
+  });
+}
+
+function applyFeatures() {
+  const globalEnabled = isGlobalEnabled();
+
+  REGISTERED_FEATURES.forEach((feature) => {
+    if (!isFeatureApplicable(feature)) {
+      return;
+    }
+
+    const featureEnabled = globalEnabled && readFeatureState(feature);
+    applyFeature(feature, featureEnabled);
+  });
+}
+
+function primeState() {
+  const keysToRead = [GLOBAL_STORAGE_KEY, ...REGISTERED_FEATURES.map((feature) => feature.storageKey)];
+
+  chrome.storage.sync.get(keysToRead, (result) => {
+    Object.assign(storageState, result);
+    applyFeatures();
+  });
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'sync') {
+    return;
+  }
+
+  let shouldApply = false;
+
+  Object.entries(changes).forEach(([storageKey, change]) => {
+    if (storageKey === GLOBAL_STORAGE_KEY || REGISTERED_FEATURES.some((feature) => feature.storageKey === storageKey)) {
+      storageState[storageKey] = change.newValue;
+      shouldApply = true;
+    }
+  });
+
+  if (shouldApply) {
+    applyFeatures();
+  }
+});
+
+primeState();

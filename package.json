@@ -1,16 +1,16 @@
 {
-  "name": "leetfocus",
+  "name": "literategoggles",
   "version": "1.0.0",
-  "description": "Chrome extension to hide LeetCode problem difficulty",
+  "description": "Browser extension toolkit for tailoring website interfaces",
   "scripts": {
     "build": "node build.js",
     "watch": "node build.js --watch",
     "zip": "node build.js --zip"
   },
   "keywords": [
-    "leetcode",
-    "chrome-extension",
-    "focus"
+    "browser-extension",
+    "customization",
+    "productivity"
   ],
   "author": "",
   "license": "MIT",

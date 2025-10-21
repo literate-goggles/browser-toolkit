@@ -1,35 +1,41 @@
-# LeetFocus
+# LiterateGoggles
 
-A Chrome extension to hide problem difficulty on LeetCode so you can focus on the problem without being intimidated by its difficulty level.
+LiterateGoggles is a personal browser toolkit for tweaking the way websites look and behave. It starts with small conveniences—like hiding LeetCode difficulty badges so you can focus on solving the problem—and invites you to grow a collection of similar experiments for any site you use.
 
-## Features
+## What it can do today
 
-- Toggle visibility of LeetCode problem difficulty indicators
-- Clean, minimalist UI
-- Works across the entire LeetCode website
+- Hide LeetCode problem difficulty labels until you want to see them.
+- Keep a global on/off switch so you can pause every tweak with a single click.
+- Offer a simple registry (`src/js/features.js`) where new ideas can be added without touching the rest of the codebase.
 
-## Installation
+## Install from source
 
-### From Chrome Web Store
+1. Clone this repository.
+2. Install dependencies: `npm install`.
+3. Build the extension: `npm run build`.
+4. Open Chrome (or any Chromium-based browser) and navigate to `chrome://extensions/`.
+5. Enable **Developer mode**.
+6. Click **Load unpacked** and pick the `dist` folder from this project.
 
-1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link will be updated when published)
-2. Search for "LeetFocus"
-3. Click "Add to Chrome"
+## Development workflow
 
-### From Source
-
-1. Clone this repository
-2. Install dependencies: `npm install`
-3. Build the extension: `npm run build`
-4. Open Chrome and navigate to `chrome://extensions/`
-5. Enable "Developer mode"
-6. Click "Load unpacked" and select the `dist` folder
-
-## Development
-
-- Install dependencies: `npm install`
 - Build once: `npm run build`
 - Build and watch for changes: `npm run watch`
+- Package a zip for distribution: `npm run zip`
+
+## Adding your own tweaks
+
+1. Open `src/js/features.js`.
+2. Add a new entry to `LITERATEGOGGLES_FEATURES` with:
+   - a unique `id`,
+   - a `name` and `description` for the popup,
+   - a `storageKey` to remember the toggle state,
+   - an `appliesTo(location)` function to limit where it runs,
+   - `onEnable`/`onDisable` hooks to apply your changes.
+3. Update `src/css` or `src/js` to include any styles or scripts your feature needs.
+4. Run `npm run build` (or `npm run watch`) and reload the unpacked extension.
+
+Each feature appears as its own toggle in the popup so you can experiment freely without disturbing the rest of your stack.
 
 ## License
 
