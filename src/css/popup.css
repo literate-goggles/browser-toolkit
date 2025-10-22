@@ -19,7 +19,7 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: var(--background-color);
   color: var(--text-color);
-  width: 340px;
+  width: 400px;
   overflow: hidden;
 }
 
