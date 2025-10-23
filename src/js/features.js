@@ -340,7 +340,11 @@ function ensureChessOverlay(document, state) {
           : null;
       const limitText = limitNumeric === null ? "a few" : `${limitNumeric}`;
       const gameWord = limitNumeric === 1 ? "game" : "games";
-      subline.textContent = `You have already played more than ${limitText} ${gameWord} today on Chess.com.`;
+      const reachedText =
+        limitNumeric === null
+          ? "the daily limit"
+          : `${limitText} ${gameWord}`;
+      subline.textContent = `You have already played ${reachedText} today on Chess.com. Once you reach ${reachedText}, the site pauses until tomorrow.`;
       subline.style.margin = "0";
       subline.style.fontSize = "1rem";
       subline.style.opacity = "0.8";

@@ -13,11 +13,14 @@ const GLOBAL_STORAGE_KEY =
 
 function updateIcon(isEnabled) {
   const iconState = isEnabled ? "on" : "off";
+  const iconPath = chrome.runtime.getURL(`icons/${iconState}.png`);
   chrome.action.setIcon({
     path: {
-      16: `icons/${iconState}.png`,
-      48: `icons/${iconState}.png`,
-      128: `icons/${iconState}.png`,
+      16: iconPath,
+      24: iconPath,
+      32: iconPath,
+      48: iconPath,
+      128: iconPath,
     },
   });
 }
