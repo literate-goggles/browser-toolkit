@@ -187,6 +187,7 @@ function getChessDailyLimitState(doc) {
       requestToken: 0,
       aborted: false,
       bodyReadyHandler: null,
+      overlayObserver: null,
     };
     chessDailyLimitState.set(doc, state);
   }
@@ -201,11 +202,58 @@ function detachChessOverlay(document, state) {
     document.removeEventListener("DOMContentLoaded", state.bodyReadyHandler);
     state.bodyReadyHandler = null;
   }
+  if (state.overlayObserver) {
+    state.overlayObserver.disconnect();
+    state.overlayObserver = null;
+  }
   if (state.overlay && state.overlay.isConnected) {
     state.overlay.remove();
     console.info("LiterateGoggles: Chess daily limit overlay removed.");
   }
   state.overlay = null;
+}
+
+function ensureChessOverlayPersistence(document, state) {
+  if (!document || !state || state.overlayObserver || !state.overlay) {
+    return;
+  }
+
+  const root = document.documentElement || document;
+  if (!root) {
+    return;
+  }
+
+  const observer = new MutationObserver(() => {
+    if (!state.overlay || state.aborted) {
+      return;
+    }
+    const body = document.body;
+    if (!body || body.contains(state.overlay)) {
+      return;
+    }
+    try {
+      body.appendChild(state.overlay);
+      const quote = state.overlay.dataset?.lgChessQuote;
+      if (quote) {
+        console.info(
+          "LiterateGoggles: Chess daily limit overlay automatically reinserted after DOM mutation.",
+          { quote }
+        );
+      } else {
+        console.info(
+          "LiterateGoggles: Chess daily limit overlay automatically reinserted after DOM mutation."
+        );
+      }
+    } catch (error) {
+      console.warn(
+        "LiterateGoggles: Failed to reinsert Chess daily limit overlay after DOM mutation.",
+        error
+      );
+    }
+  });
+
+  observer.observe(root, { childList: true, subtree: true });
+  state.overlayObserver = observer;
 }
 
 function ensureChessOverlay(document, state) {
@@ -217,56 +265,89 @@ function ensureChessOverlay(document, state) {
     if (state.aborted) {
       return;
     }
-    if (state.overlay && state.overlay.isConnected) {
+
+    const body = document.body;
+    if (!body) {
       return;
     }
 
-    const overlay = document.createElement("div");
-    overlay.className = "lg-chess-daily-limit";
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.zIndex = "2147483647";
-    overlay.style.backgroundColor = "#000";
-    overlay.style.color = "#fff";
-    overlay.style.display = "flex";
-    overlay.style.flexDirection = "column";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
-    overlay.style.padding = "2rem";
-    overlay.style.textAlign = "center";
-    overlay.style.fontFamily =
-      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    overlay.style.fontSize = "clamp(1.5rem, 4vw, 2.75rem)";
-    overlay.style.lineHeight = "1.4";
-    overlay.style.gap = "1.5rem";
+    let overlay = state.overlay;
+    let overlayCreated = false;
 
-    const headline = document.createElement("h1");
-    const quoteIndex = Math.floor(
-      Math.random() * CHESS_DAILY_LIMIT_QUOTES.length
-    );
-    const quote =
-      CHESS_DAILY_LIMIT_QUOTES[Number.isNaN(quoteIndex) ? 0 : quoteIndex] ||
-      "Stop playing. Go do nice things / studying.";
-    headline.textContent = quote;
-    headline.style.margin = "0";
-    headline.style.fontSize = "inherit";
-    headline.style.fontWeight = "600";
+    if (!overlay) {
+      overlayCreated = true;
+      overlay = document.createElement("div");
+      overlay.className = "lg-chess-daily-limit";
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.zIndex = "2147483647";
+      overlay.style.backgroundColor = "#000";
+      overlay.style.color = "#fff";
+      overlay.style.display = "flex";
+      overlay.style.flexDirection = "column";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.padding = "2rem";
+      overlay.style.textAlign = "center";
+      overlay.style.fontFamily =
+        'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+      overlay.style.fontSize = "clamp(1.5rem, 4vw, 2.75rem)";
+      overlay.style.lineHeight = "1.4";
+      overlay.style.gap = "1.5rem";
 
-    const subline = document.createElement("p");
-    subline.textContent =
-      "You have already played more than three games today on Chess.com.";
-    subline.style.margin = "0";
-    subline.style.fontSize = "1rem";
-    subline.style.opacity = "0.8";
+      const headline = document.createElement("h1");
+      const quoteIndex = Math.floor(
+        Math.random() * CHESS_DAILY_LIMIT_QUOTES.length
+      );
+      const quote =
+        CHESS_DAILY_LIMIT_QUOTES[Number.isNaN(quoteIndex) ? 0 : quoteIndex] ||
+        "Stop playing. Go do nice things / studying.";
+      headline.textContent = quote;
+      headline.style.margin = "0";
+      headline.style.fontSize = "inherit";
+      headline.style.fontWeight = "600";
 
-    overlay.appendChild(headline);
-    overlay.appendChild(subline);
+      const subline = document.createElement("p");
+      subline.textContent =
+        "You have already played more than three games today on Chess.com.";
+      subline.style.margin = "0";
+      subline.style.fontSize = "1rem";
+      subline.style.opacity = "0.8";
 
-    document.body.appendChild(overlay);
-    console.info("LiterateGoggles: Chess daily limit overlay attached.", {
-      quote,
-    });
-    state.overlay = overlay;
+      overlay.appendChild(headline);
+      overlay.appendChild(subline);
+      overlay.dataset.lgChessQuote = quote;
+
+      state.overlay = overlay;
+    }
+
+    const overlayWasConnected = overlay.isConnected;
+    if (!body.contains(overlay)) {
+      body.appendChild(overlay);
+      const quoteForLog = overlay.dataset?.lgChessQuote || null;
+      if (overlayCreated) {
+        if (quoteForLog) {
+          console.info("LiterateGoggles: Chess daily limit overlay attached.", {
+            quote: quoteForLog,
+          });
+        } else {
+          console.info("LiterateGoggles: Chess daily limit overlay attached.");
+        }
+      } else if (!overlayWasConnected) {
+        if (quoteForLog) {
+          console.info(
+            "LiterateGoggles: Chess daily limit overlay reattached.",
+            { quote: quoteForLog }
+          );
+        } else {
+          console.info(
+            "LiterateGoggles: Chess daily limit overlay reattached."
+          );
+        }
+      }
+    }
+
+    ensureChessOverlayPersistence(document, state);
   };
 
   if (document.body) {
@@ -374,7 +455,7 @@ async function checkChessDailyLimit(document, win, state) {
       }
     });
 
-    if (gamesToday > 3) {
+    if (gamesToday >= 3) {
       console.warn("LiterateGoggles: Chess daily limit reached.", {
         gamesToday,
       });
