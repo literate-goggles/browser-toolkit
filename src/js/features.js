@@ -168,6 +168,125 @@ const aimchessHideCoordinatesFeature = {
 
 const chessDailyLimitState = new WeakMap();
 
+const stepchessCoordinateState = new WeakMap();
+
+function getStepchessState(doc) {
+  if (!doc) {
+    return null;
+  }
+  let state = stepchessCoordinateState.get(doc);
+  if (!state) {
+    state = {
+      removedNodes: [],
+      observer: null,
+    };
+    stepchessCoordinateState.set(doc, state);
+  }
+  return state;
+}
+
+const stepchessHideCoordinatesFeature = {
+  id: "stepchessHideCoordinates",
+  name: "Hide StepChess board coordinates",
+  description:
+    "Removes rank/file labels on StepChess boards to keep you focused on structure.",
+  storageKey: "literategoggles.features.stepchessHideCoordinates.enabled",
+  defaultEnabled: false,
+  appliesTo(location) {
+    return /(^|\.)stepchess\.ru$/i.test(location.hostname);
+  },
+  onEnable({ document }) {
+    const body = document?.body;
+    if (!body) {
+      return;
+    }
+
+    const state = getStepchessState(document);
+    if (!state) {
+      return;
+    }
+
+    state.removedNodes = [];
+
+    const removeCoordinates = (rootNode = document) => {
+      if (!rootNode || typeof rootNode.querySelectorAll !== "function") {
+        return;
+      }
+      ["coords.ranks", "coords.files"].forEach((selector) => {
+        rootNode.querySelectorAll(selector).forEach((node) => {
+          if (!node || !node.isConnected) {
+            return;
+          }
+          const parent = node.parentNode;
+          if (!parent) {
+            return;
+          }
+          state.removedNodes.push({
+            parent,
+            node,
+            nextSibling: node.nextSibling,
+          });
+          parent.removeChild(node);
+        });
+      });
+    };
+
+    state.removeCoordinates = removeCoordinates;
+
+    removeCoordinates(document);
+
+    if (state.observer) {
+      state.observer.disconnect();
+    }
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((addedNode) => {
+          if (addedNode.nodeType !== Node.ELEMENT_NODE) {
+            return;
+          }
+          removeCoordinates(addedNode);
+        });
+      });
+    });
+
+    observer.observe(body, { childList: true, subtree: true });
+    state.observer = observer;
+  },
+  onDisable({ document }) {
+    const state = stepchessCoordinateState.get(document);
+    if (!state) {
+      return;
+    }
+
+    if (state.observer) {
+      state.observer.disconnect();
+      state.observer = null;
+    }
+
+    state.removedNodes.forEach((entry) => {
+      const { parent, node, nextSibling } = entry;
+      if (!parent || !node) {
+        return;
+      }
+      if (node.isConnected) {
+        return;
+      }
+      try {
+        if (nextSibling && nextSibling.parentNode === parent) {
+          parent.insertBefore(node, nextSibling);
+        } else {
+          parent.appendChild(node);
+        }
+      } catch {
+        // If reinsertion fails we silently ignore; the user can refresh the page.
+      }
+    });
+    state.removedNodes = [];
+    delete state.removeCoordinates;
+  },
+};
+
 const CHESS_DAILY_LIMIT_QUOTES = [
   "Congratulations, Magnus Blundsen. You've proven once again that overthinking doesn't equal intelligence.",
   "You don't need more chess practice; you need a hobby that doesn't expose your IQ in public.",
@@ -341,9 +460,7 @@ function ensureChessOverlay(document, state) {
       const limitText = limitNumeric === null ? "a few" : `${limitNumeric}`;
       const gameWord = limitNumeric === 1 ? "game" : "games";
       const reachedText =
-        limitNumeric === null
-          ? "the daily limit"
-          : `${limitText} ${gameWord}`;
+        limitNumeric === null ? "the daily limit" : `${limitText} ${gameWord}`;
       subline.textContent = `You have already played ${reachedText} today on Chess.com. Once you reach ${reachedText}, the site pauses until tomorrow.`;
       subline.style.margin = "0";
       subline.style.fontSize = "1rem";
@@ -559,6 +676,7 @@ const chessDailyLimitFeature = {
 const LITERATEGOGGLES_FEATURES = [
   leetCodeDifficultyFeature,
   aimchessHideCoordinatesFeature,
+  stepchessHideCoordinatesFeature,
   chessDailyLimitFeature,
 ];
 
