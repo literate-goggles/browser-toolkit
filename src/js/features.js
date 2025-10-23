@@ -1,5 +1,30 @@
 const LITERATEGOGGLES_GLOBAL_STORAGE_KEY = "literategoggles.globalEnabled";
 
+const LITERATEGOGGLES_CONFIG =
+  globalThis.LiterateGogglesConfig || Object.create(null);
+const LITERATEGOGGLES_DEFAULT_CONFIG =
+  globalThis.LiterateGogglesDefaultConfig || Object.create(null);
+
+const CHESS_DAILY_GAME_LIMIT =
+  typeof LITERATEGOGGLES_CONFIG.chessDailyGameLimit === "number" &&
+  Number.isFinite(LITERATEGOGGLES_CONFIG.chessDailyGameLimit)
+    ? LITERATEGOGGLES_CONFIG.chessDailyGameLimit
+    : LITERATEGOGGLES_DEFAULT_CONFIG.chessDailyGameLimit;
+
+function getChessDailyGameLimit() {
+  if (
+    typeof CHESS_DAILY_GAME_LIMIT === "number" &&
+    Number.isFinite(CHESS_DAILY_GAME_LIMIT)
+  ) {
+    return CHESS_DAILY_GAME_LIMIT;
+  }
+  const fallback = LITERATEGOGGLES_DEFAULT_CONFIG.chessDailyGameLimit;
+  if (typeof fallback === "number" && Number.isFinite(fallback)) {
+    return fallback;
+  }
+  return null;
+}
+
 const leetCodeDifficultyFeature = {
   id: "leetcodeDifficultyHider",
   name: "Hide LeetCode difficulty badges",
@@ -308,8 +333,14 @@ function ensureChessOverlay(document, state) {
       headline.style.fontWeight = "600";
 
       const subline = document.createElement("p");
-      subline.textContent =
-        "You have already played more than three games today on Chess.com.";
+      const limitValue = getChessDailyGameLimit();
+      const limitNumeric =
+        typeof limitValue === "number" && Number.isFinite(limitValue)
+          ? limitValue
+          : null;
+      const limitText = limitNumeric === null ? "a few" : `${limitNumeric}`;
+      const gameWord = limitNumeric === 1 ? "game" : "games";
+      subline.textContent = `You have already played more than ${limitText} ${gameWord} today on Chess.com.`;
       subline.style.margin = "0";
       subline.style.fontSize = "1rem";
       subline.style.opacity = "0.8";
@@ -455,14 +486,31 @@ async function checkChessDailyLimit(document, win, state) {
       }
     });
 
-    if (gamesToday >= 3) {
+    const limitValue = getChessDailyGameLimit();
+    const limitNumeric =
+      typeof limitValue === "number" && Number.isFinite(limitValue)
+        ? limitValue
+        : null;
+
+    if (limitNumeric === null) {
+      console.info(
+        "LiterateGoggles: Chess daily limit configuration missing or invalid. Skipping enforcement.",
+        { gamesToday, limitValue }
+      );
+      detachChessOverlay(document, state);
+      return;
+    }
+
+    if (gamesToday >= limitNumeric) {
       console.warn("LiterateGoggles: Chess daily limit reached.", {
         gamesToday,
+        limit: limitNumeric,
       });
       ensureChessOverlay(document, state);
     } else {
       console.info("LiterateGoggles: Chess daily limit not reached.", {
         gamesToday,
+        limit: limitNumeric,
       });
       detachChessOverlay(document, state);
     }
