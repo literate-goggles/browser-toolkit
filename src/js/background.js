@@ -1,20 +1,24 @@
 try {
-  importScripts('features.js');
+  importScripts("features.js");
 } catch (error) {
-  console.warn('LiterateGoggles: unable to load shared feature metadata in background script.', error);
+  console.warn(
+    "LiterateGoggles: unable to load shared feature metadata in background script.",
+    error
+  );
 }
 
 const LiterateGogglesRuntime = globalThis.LiterateGoggles || {};
-const GLOBAL_STORAGE_KEY = LiterateGogglesRuntime.globalStorageKey || 'literategoggles.globalEnabled';
+const GLOBAL_STORAGE_KEY =
+  LiterateGogglesRuntime.globalStorageKey || "literategoggles.globalEnabled";
 
 function updateIcon(isEnabled) {
-  const iconState = isEnabled ? 'on' : 'off';
+  const iconState = isEnabled ? "on" : "off";
   chrome.action.setIcon({
     path: {
       16: `icons/${iconState}.png`,
       48: `icons/${iconState}.png`,
-      128: `icons/${iconState}.png`
-    }
+      128: `icons/${iconState}.png`,
+    },
   });
 }
 
@@ -26,12 +30,15 @@ function refreshIconFromStorage() {
 }
 
 chrome.runtime.onInstalled.addListener(refreshIconFromStorage);
-if (chrome.runtime.onStartup && typeof chrome.runtime.onStartup.addListener === 'function') {
+if (
+  chrome.runtime.onStartup &&
+  typeof chrome.runtime.onStartup.addListener === "function"
+) {
   chrome.runtime.onStartup.addListener(refreshIconFromStorage);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== 'sync' || !(GLOBAL_STORAGE_KEY in changes)) {
+  if (area !== "sync" || !(GLOBAL_STORAGE_KEY in changes)) {
     return;
   }
   updateIcon(changes[GLOBAL_STORAGE_KEY].newValue !== false);

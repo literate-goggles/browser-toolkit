@@ -1,10 +1,11 @@
-const LITERATEGOGGLES_GLOBAL_STORAGE_KEY = 'literategoggles.globalEnabled';
+const LITERATEGOGGLES_GLOBAL_STORAGE_KEY = "literategoggles.globalEnabled";
 
 const leetCodeDifficultyFeature = {
-  id: 'leetcodeDifficultyHider',
-  name: 'Hide LeetCode difficulty badges',
-  description: 'Keeps LeetCode problem difficulty labels out of sight until you ask for them.',
-  storageKey: 'literategoggles.features.leetcodeDifficultyHider.enabled',
+  id: "leetcodeDifficultyHider",
+  name: "Hide LeetCode difficulty badges",
+  description:
+    "Keeps LeetCode problem difficulty labels out of sight until you ask for them.",
+  storageKey: "literategoggles.features.leetcodeDifficultyHider.enabled",
   defaultEnabled: true,
   appliesTo(location) {
     return /(^|\.)leetcode\.com$/i.test(location.hostname);
@@ -14,15 +15,15 @@ const leetCodeDifficultyFeature = {
     if (!targetDocument?.body) {
       return;
     }
-    targetDocument.body.classList.add('lg-hide-leetcode-difficulty');
+    targetDocument.body.classList.add("lg-hide-leetcode-difficulty");
   },
   onDisable(context) {
     const targetDocument = context?.document;
     if (!targetDocument?.body) {
       return;
     }
-    targetDocument.body.classList.remove('lg-hide-leetcode-difficulty');
-  }
+    targetDocument.body.classList.remove("lg-hide-leetcode-difficulty");
+  },
 };
 
 const aimchessCoordinateState = new WeakMap();
@@ -35,7 +36,7 @@ function getAimchessState(doc) {
   if (!state) {
     state = {
       removedNodes: [],
-      observer: null
+      observer: null,
     };
     aimchessCoordinateState.set(doc, state);
   }
@@ -43,10 +44,11 @@ function getAimchessState(doc) {
 }
 
 const aimchessHideCoordinatesFeature = {
-  id: 'aimchessHideCoordinates',
-  name: 'Hide Aimchess board coordinates',
-  description: 'Removes rank/file labels on Aimchess boards so the geometry stays in focus.',
-  storageKey: 'literategoggles.features.aimchessHideCoordinates.enabled',
+  id: "aimchessHideCoordinates",
+  name: "Hide Aimchess board coordinates",
+  description:
+    "Removes rank/file labels on Aimchess boards so the geometry stays in focus.",
+  storageKey: "literategoggles.features.aimchessHideCoordinates.enabled",
   defaultEnabled: false,
   appliesTo(location) {
     return /(^|\.)aimchess\.com$/i.test(location.hostname);
@@ -60,10 +62,12 @@ const aimchessHideCoordinatesFeature = {
     const state = getAimchessState(document);
 
     const removeCoordinates = (rootNode = document) => {
-      if (!rootNode || typeof rootNode.querySelectorAll !== 'function') {
+      if (!rootNode || typeof rootNode.querySelectorAll !== "function") {
         return;
       }
-      const candidates = rootNode.querySelectorAll('svg.cm-chessboard .coordinates');
+      const candidates = rootNode.querySelectorAll(
+        "svg.cm-chessboard .coordinates"
+      );
       candidates.forEach((node) => {
         if (!node || !node.isConnected) {
           return;
@@ -75,7 +79,7 @@ const aimchessHideCoordinatesFeature = {
         state.removedNodes.push({
           parent,
           node,
-          nextSibling: node.nextSibling
+          nextSibling: node.nextSibling,
         });
         parent.removeChild(node);
       });
@@ -134,7 +138,7 @@ const aimchessHideCoordinatesFeature = {
     });
     state.removedNodes = [];
     delete state.removeCoordinates;
-  }
+  },
 };
 
 const chessDailyLimitState = new WeakMap();
@@ -152,7 +156,7 @@ const CHESS_DAILY_LIMIT_QUOTES = [
   "The only thing you're mastering is how to emotionally recover from blunders.",
   "Mild Brain Damage Detected.",
   "Your knight just moved like it's drunk and homesick.",
-  "Stop calling it a \"strategy.\" It's just panic with extra steps.",
+  'Stop calling it a "strategy." It\'s just panic with extra steps.',
   "You play chess like your mouse has trust issues.",
   "I've seen better board control from toddlers with checkers.",
   "You think you're being unpredictable, but so does your prefrontal cortex.",
@@ -160,7 +164,7 @@ const CHESS_DAILY_LIMIT_QUOTES = [
   "Your Elo isn't low, it's subterranean.",
   "You just sacrificed your queen and your dignity.",
   "The only fork you're good at involves spaghetti.",
-  "Imagine losing to someone named \"HorseyLover420\"--oh wait, you did.",
+  'Imagine losing to someone named "HorseyLover420"--oh wait, you did.',
   "You're not in a chess game. You're in a live demonstration of self-sabotage.",
   "Even the pawns pity you now.",
   "At this point, losing gracefully is your only opening.",
@@ -170,7 +174,6 @@ const CHESS_DAILY_LIMIT_QUOTES = [
   "You've turned a game of logic into interpretive dance.",
   "If this was war, your own troops would defect out of mercy.",
   "Your brain's connection timed out three moves ago.",
-  "The board isn't black and white--it's a crime scene."
 ];
 
 function getChessDailyLimitState(doc) {
@@ -183,7 +186,7 @@ function getChessDailyLimitState(doc) {
       overlay: null,
       requestToken: 0,
       aborted: false,
-      bodyReadyHandler: null
+      bodyReadyHandler: null,
     };
     chessDailyLimitState.set(doc, state);
   }
@@ -195,12 +198,12 @@ function detachChessOverlay(document, state) {
     return;
   }
   if (state.bodyReadyHandler) {
-    document.removeEventListener('DOMContentLoaded', state.bodyReadyHandler);
+    document.removeEventListener("DOMContentLoaded", state.bodyReadyHandler);
     state.bodyReadyHandler = null;
   }
   if (state.overlay && state.overlay.isConnected) {
     state.overlay.remove();
-    console.info('LiterateGoggles: Chess daily limit overlay removed.');
+    console.info("LiterateGoggles: Chess daily limit overlay removed.");
   }
   state.overlay = null;
 }
@@ -218,45 +221,51 @@ function ensureChessOverlay(document, state) {
       return;
     }
 
-    const overlay = document.createElement('div');
-    overlay.className = 'lg-chess-daily-limit';
-    overlay.style.position = 'fixed';
-    overlay.style.inset = '0';
-    overlay.style.zIndex = '2147483647';
-    overlay.style.backgroundColor = '#000';
-    overlay.style.color = '#fff';
-    overlay.style.display = 'flex';
-    overlay.style.flexDirection = 'column';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    overlay.style.padding = '2rem';
-    overlay.style.textAlign = 'center';
-    overlay.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    overlay.style.fontSize = 'clamp(1.5rem, 4vw, 2.75rem)';
-    overlay.style.lineHeight = '1.4';
-    overlay.style.gap = '1.5rem';
+    const overlay = document.createElement("div");
+    overlay.className = "lg-chess-daily-limit";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "2147483647";
+    overlay.style.backgroundColor = "#000";
+    overlay.style.color = "#fff";
+    overlay.style.display = "flex";
+    overlay.style.flexDirection = "column";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.padding = "2rem";
+    overlay.style.textAlign = "center";
+    overlay.style.fontFamily =
+      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    overlay.style.fontSize = "clamp(1.5rem, 4vw, 2.75rem)";
+    overlay.style.lineHeight = "1.4";
+    overlay.style.gap = "1.5rem";
 
-    const headline = document.createElement('h1');
-    const quoteIndex = Math.floor(Math.random() * CHESS_DAILY_LIMIT_QUOTES.length);
+    const headline = document.createElement("h1");
+    const quoteIndex = Math.floor(
+      Math.random() * CHESS_DAILY_LIMIT_QUOTES.length
+    );
     const quote =
       CHESS_DAILY_LIMIT_QUOTES[Number.isNaN(quoteIndex) ? 0 : quoteIndex] ||
-      'Stop playing. Go do nice things / studying.';
+      "Stop playing. Go do nice things / studying.";
     headline.textContent = quote;
-    headline.style.margin = '0';
-    headline.style.fontSize = 'inherit';
-    headline.style.fontWeight = '600';
+    headline.style.margin = "0";
+    headline.style.fontSize = "inherit";
+    headline.style.fontWeight = "600";
 
-    const subline = document.createElement('p');
-    subline.textContent = 'You have already played more than three games today on Chess.com.';
-    subline.style.margin = '0';
-    subline.style.fontSize = '1rem';
-    subline.style.opacity = '0.8';
+    const subline = document.createElement("p");
+    subline.textContent =
+      "You have already played more than three games today on Chess.com.";
+    subline.style.margin = "0";
+    subline.style.fontSize = "1rem";
+    subline.style.opacity = "0.8";
 
     overlay.appendChild(headline);
     overlay.appendChild(subline);
 
     document.body.appendChild(overlay);
-    console.info('LiterateGoggles: Chess daily limit overlay attached.', { quote });
+    console.info("LiterateGoggles: Chess daily limit overlay attached.", {
+      quote,
+    });
     state.overlay = overlay;
   };
 
@@ -266,13 +275,13 @@ function ensureChessOverlay(document, state) {
   }
 
   const handler = () => {
-    document.removeEventListener('DOMContentLoaded', handler);
+    document.removeEventListener("DOMContentLoaded", handler);
     state.bodyReadyHandler = null;
     attach();
   };
 
   state.bodyReadyHandler = handler;
-  document.addEventListener('DOMContentLoaded', handler, { once: true });
+  document.addEventListener("DOMContentLoaded", handler, { once: true });
 }
 
 async function checkChessDailyLimit(document, win, state) {
@@ -283,33 +292,36 @@ async function checkChessDailyLimit(document, win, state) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
-  const monthSegment = month.toString().padStart(2, '0');
+  const monthSegment = month.toString().padStart(2, "0");
   const url = `https://api.chess.com/pub/player/unlimited_bezdarnost/games/${year}/${monthSegment}`;
 
-  console.info('LiterateGoggles: Checking Chess.com daily limit.', {
+  console.info("LiterateGoggles: Checking Chess.com daily limit.", {
     url,
-    nextRequestToken: state.requestToken + 1
+    nextRequestToken: state.requestToken + 1,
   });
 
   const requestToken = ++state.requestToken;
 
   try {
-    const response = await win.fetch(url, { cache: 'no-store' });
+    const response = await win.fetch(url, { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Unexpected response status ${response.status}`);
     }
     const payload = await response.json();
     if (state.aborted || state.requestToken !== requestToken) {
-      console.info('LiterateGoggles: Chess daily limit check aborted or superseded.', {
-        aborted: state.aborted,
-        activeToken: state.requestToken,
-        completedToken: requestToken
-      });
+      console.info(
+        "LiterateGoggles: Chess daily limit check aborted or superseded.",
+        {
+          aborted: state.aborted,
+          activeToken: state.requestToken,
+          completedToken: requestToken,
+        }
+      );
       return;
     }
     const games = Array.isArray(payload?.games) ? payload.games : [];
-    console.info('LiterateGoggles: Chess daily limit response received.', {
-      totalGamesInMonth: games.length
+    console.info("LiterateGoggles: Chess daily limit response received.", {
+      totalGamesInMonth: games.length,
     });
     const todayYear = now.getFullYear();
     const todayMonth = now.getMonth();
@@ -321,23 +333,29 @@ async function checkChessDailyLimit(document, win, state) {
         return;
       }
       let gameDate = null;
-      if (typeof game.end_time === 'number' && Number.isFinite(game.end_time)) {
+      if (typeof game.end_time === "number" && Number.isFinite(game.end_time)) {
         gameDate = new Date(game.end_time * 1000);
-      } else if (typeof game.end_time === 'string') {
+      } else if (typeof game.end_time === "string") {
         const parsed = Number.parseInt(game.end_time, 10);
         if (!Number.isNaN(parsed)) {
           gameDate = new Date(parsed * 1000);
         }
       }
 
-      if (!gameDate && typeof game.pgn === 'string') {
-        const dateMatch = game.pgn.match(/\[Date\s+"(\d{4})\.(\d{2})\.(\d{2})"\]/);
+      if (!gameDate && typeof game.pgn === "string") {
+        const dateMatch = game.pgn.match(
+          /\[Date\s+"(\d{4})\.(\d{2})\.(\d{2})"\]/
+        );
         if (dateMatch) {
           const [, yearText, monthText, dayText] = dateMatch;
           const parsedYear = Number.parseInt(yearText, 10);
           const parsedMonth = Number.parseInt(monthText, 10);
           const parsedDay = Number.parseInt(dayText, 10);
-          if (!Number.isNaN(parsedYear) && !Number.isNaN(parsedMonth) && !Number.isNaN(parsedDay)) {
+          if (
+            !Number.isNaN(parsedYear) &&
+            !Number.isNaN(parsedMonth) &&
+            !Number.isNaN(parsedDay)
+          ) {
             gameDate = new Date(parsedYear, parsedMonth - 1, parsedDay);
           }
         }
@@ -357,22 +375,30 @@ async function checkChessDailyLimit(document, win, state) {
     });
 
     if (gamesToday > 3) {
-      console.warn('LiterateGoggles: Chess daily limit reached.', { gamesToday });
+      console.warn("LiterateGoggles: Chess daily limit reached.", {
+        gamesToday,
+      });
       ensureChessOverlay(document, state);
     } else {
-      console.info('LiterateGoggles: Chess daily limit not reached.', { gamesToday });
+      console.info("LiterateGoggles: Chess daily limit not reached.", {
+        gamesToday,
+      });
       detachChessOverlay(document, state);
     }
   } catch (error) {
-    console.warn('LiterateGoggles: failed to enforce Chess.com daily limit.', error);
+    console.warn(
+      "LiterateGoggles: failed to enforce Chess.com daily limit.",
+      error
+    );
   }
 }
 
 const chessDailyLimitFeature = {
-  id: 'chessDailyLimit',
-  name: 'Chess.com daily limiter',
-  description: 'Blocks Chess.com with a black overlay if you already played more than three games today.',
-  storageKey: 'literategoggles.features.chessDailyLimit.enabled',
+  id: "chessDailyLimit",
+  name: "Chess.com daily limiter",
+  description:
+    "Blocks Chess.com with a black overlay if you already played more than three games today.",
+  storageKey: "literategoggles.features.chessDailyLimit.enabled",
   defaultEnabled: true,
   appliesTo(location) {
     return /(^|\.)chess\.com$/i.test(location.hostname);
@@ -383,7 +409,7 @@ const chessDailyLimitFeature = {
       return;
     }
     state.aborted = false;
-    console.info('LiterateGoggles: Chess daily limit feature enabled.');
+    console.info("LiterateGoggles: Chess daily limit feature enabled.");
     checkChessDailyLimit(document, window, state);
   },
   onDisable({ document }) {
@@ -392,15 +418,15 @@ const chessDailyLimitFeature = {
       return;
     }
     state.aborted = true;
-    console.info('LiterateGoggles: Chess daily limit feature disabled.');
+    console.info("LiterateGoggles: Chess daily limit feature disabled.");
     detachChessOverlay(document, state);
-  }
+  },
 };
 
 const LITERATEGOGGLES_FEATURES = [
   leetCodeDifficultyFeature,
   aimchessHideCoordinatesFeature,
-  chessDailyLimitFeature
+  chessDailyLimitFeature,
 ];
 
 if (!globalThis.LiterateGoggles) {
@@ -411,6 +437,9 @@ Object.assign(globalThis.LiterateGoggles, {
   features: LITERATEGOGGLES_FEATURES,
   globalStorageKey: LITERATEGOGGLES_GLOBAL_STORAGE_KEY,
   getFeatureById(featureId) {
-    return LITERATEGOGGLES_FEATURES.find((feature) => feature.id === featureId) || null;
-  }
+    return (
+      LITERATEGOGGLES_FEATURES.find((feature) => feature.id === featureId) ||
+      null
+    );
+  },
 });
