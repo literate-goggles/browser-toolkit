@@ -643,6 +643,14 @@ async function checkChessDailyLimit(document, win, state) {
   }
 }
 
+const CHESS_DAILY_LIMIT_IGNORED_URL_PREFIXES = [
+  "https://www.chess.com/puzzles",
+  "https://www.chess.com/daily",
+  "https://www.chess.com/analysis",
+  "https://www.chess.com/library",
+  "https://www.chess.com/news/view",
+];
+
 const chessDailyLimitFeature = {
   id: "chessDailyLimit",
   name: "Chess.com daily limiter",
@@ -651,7 +659,15 @@ const chessDailyLimitFeature = {
   storageKey: "literategoggles.features.chessDailyLimit.enabled",
   defaultEnabled: true,
   appliesTo(location) {
-    return /(^|\.)chess\.com$/i.test(location.hostname);
+    if (!location || !/(^|\.)chess\.com$/i.test(location.hostname)) {
+      return false;
+    }
+
+    const href = typeof location.href === "string" ? location.href : "";
+    const shouldIgnore = CHESS_DAILY_LIMIT_IGNORED_URL_PREFIXES.some((prefix) =>
+      href.startsWith(prefix)
+    );
+    return !shouldIgnore;
   },
   onEnable({ document, window }) {
     const state = getChessDailyLimitState(document);
