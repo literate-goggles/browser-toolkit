@@ -11,6 +11,45 @@ const CHESS_DAILY_GAME_LIMIT =
     ? LITERATEGOGGLES_CONFIG.chessDailyGameLimit
     : LITERATEGOGGLES_DEFAULT_CONFIG.chessDailyGameLimit;
 
+const CHESS_MANUAL_BLOCK_STORAGE_KEY =
+  "literategoggles.features.chessDailyLimit.manualBlockUntil";
+
+function normalizeTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getEndOfDayTimestamp(now = new Date()) {
+  const endOfDay = new Date(now);
+  endOfDay.setHours(23, 59, 59, 999);
+  return endOfDay.getTime();
+}
+
+function formatAvailability(timestamp) {
+  if (typeof timestamp !== "number" || Number.isNaN(timestamp)) {
+    return "tomorrow";
+  }
+  const date = new Date(timestamp);
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const day = date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  return `${time} (${day})`;
+}
+
 function getChessDailyGameLimit() {
   if (
     typeof CHESS_DAILY_GAME_LIMIT === "number" &&
@@ -332,6 +371,9 @@ function getChessDailyLimitState(doc) {
       aborted: false,
       bodyReadyHandler: null,
       overlayObserver: null,
+      manualBlockUntil: null,
+      storageListener: null,
+      currentBlockInfo: null,
     };
     chessDailyLimitState.set(doc, state);
   }
@@ -355,6 +397,8 @@ function detachChessOverlay(document, state) {
     console.info("LiterateGoggles: Chess daily limit overlay removed.");
   }
   state.overlay = null;
+  state.overlayParts = null;
+  state.currentBlockInfo = null;
 }
 
 function ensureChessOverlayPersistence(document, state) {
@@ -400,10 +444,12 @@ function ensureChessOverlayPersistence(document, state) {
   state.overlayObserver = observer;
 }
 
-function ensureChessOverlay(document, state) {
-  if (!document || !state || state.aborted) {
+function ensureChessOverlay(document, state, blockInfo) {
+  if (!document || !state || state.aborted || !blockInfo) {
     return;
   }
+
+  state.currentBlockInfo = blockInfo;
 
   const attach = () => {
     if (state.aborted) {
@@ -437,9 +483,10 @@ function ensureChessOverlay(document, state) {
         'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
       overlay.style.fontSize = "clamp(1.5rem, 4vw, 2.75rem)";
       overlay.style.lineHeight = "1.4";
-      overlay.style.gap = "1.5rem";
+      overlay.style.gap = "1rem";
 
       const headline = document.createElement("h1");
+      headline.className = "lg-chess-headline";
       const quoteIndex = Math.floor(
         Math.random() * CHESS_DAILY_LIMIT_QUOTES.length
       );
@@ -452,28 +499,67 @@ function ensureChessOverlay(document, state) {
       headline.style.fontWeight = "600";
 
       const subline = document.createElement("p");
-      const limitValue = getChessDailyGameLimit();
-      const limitNumeric =
-        typeof limitValue === "number" && Number.isFinite(limitValue)
-          ? limitValue
-          : null;
-      const limitText = limitNumeric === null ? "a few" : `${limitNumeric}`;
-      const gameWord = limitNumeric === 1 ? "game" : "games";
-      const reachedText =
-        limitNumeric === null ? "the daily limit" : `${limitText} ${gameWord}`;
-      subline.textContent = `You have already played ${reachedText} today on Chess.com. Once you reach ${reachedText}, the site pauses until tomorrow.`;
+      subline.className = "lg-chess-subline";
       subline.style.margin = "0";
       subline.style.fontSize = "1rem";
-      subline.style.opacity = "0.8";
+      subline.style.opacity = "0.85";
+
+      const availability = document.createElement("p");
+      availability.className = "lg-chess-availability";
+      availability.style.margin = "0";
+      availability.style.fontSize = "0.95rem";
+      availability.style.opacity = "0.75";
 
       overlay.appendChild(headline);
       overlay.appendChild(subline);
+      overlay.appendChild(availability);
       overlay.dataset.lgChessQuote = quote;
+      state.overlayParts = { headline, subline, availability };
 
       state.overlay = overlay;
     }
 
+    const { headline, subline, availability } = state.overlayParts || {};
     const overlayWasConnected = overlay.isConnected;
+
+    const limitValue = getChessDailyGameLimit();
+    const limitNumeric =
+      typeof limitValue === "number" && Number.isFinite(limitValue)
+        ? limitValue
+        : null;
+    const limitText = limitNumeric === null ? "a few" : `${limitNumeric}`;
+    const gameWord = limitNumeric === 1 ? "game" : "games";
+    const reachedText =
+      limitNumeric === null ? "the daily limit" : `${limitText} ${gameWord}`;
+
+    const availabilityText = blockInfo.availableAt
+      ? `Chess.com unlocks at ${formatAvailability(blockInfo.availableAt)}.`
+      : "Chess.com unlocks tomorrow.";
+
+    if (subline) {
+      if (blockInfo.reason === "manual") {
+        subline.textContent =
+          "FilthLatch engaged. You volunteered to wall off Chess.com for the rest of today.";
+      } else {
+        const gamesText =
+          typeof blockInfo.gamesToday === "number" &&
+          Number.isFinite(blockInfo.gamesToday)
+            ? `${blockInfo.gamesToday} ${gameWord}`
+            : reachedText;
+        subline.textContent = `You have already played ${gamesText} today on Chess.com. Once you reach ${reachedText}, the site pauses until tomorrow.`;
+      }
+    }
+
+    if (availability) {
+      availability.textContent = availabilityText;
+    }
+
+    overlay.dataset.lgChessReason = blockInfo.reason || "";
+    overlay.dataset.lgChessAvailableAt =
+      typeof blockInfo.availableAt === "number" && Number.isFinite(blockInfo.availableAt)
+        ? String(blockInfo.availableAt)
+        : "";
+
     if (!body.contains(overlay)) {
       body.appendChild(overlay);
       const quoteForLog = overlay.dataset?.lgChessQuote || null;
@@ -517,8 +603,25 @@ function ensureChessOverlay(document, state) {
   document.addEventListener("DOMContentLoaded", handler, { once: true });
 }
 
+function setChessBlock(document, state, blockInfo) {
+  if (blockInfo) {
+    ensureChessOverlay(document, state, blockInfo);
+  } else {
+    detachChessOverlay(document, state);
+  }
+}
+
 async function checkChessDailyLimit(document, win, state) {
   if (!document || !win || !state) {
+    return;
+  }
+
+  const manualUntil = normalizeTimestamp(state.manualBlockUntil);
+  if (manualUntil && manualUntil > Date.now()) {
+    setChessBlock(document, state, {
+      reason: "manual",
+      availableAt: manualUntil,
+    });
     return;
   }
 
@@ -613,27 +716,43 @@ async function checkChessDailyLimit(document, win, state) {
         ? limitValue
         : null;
 
+    const manualNow = normalizeTimestamp(state.manualBlockUntil);
+    if (manualNow && manualNow > Date.now()) {
+      setChessBlock(document, state, {
+        reason: "manual",
+        availableAt: manualNow,
+      });
+      return;
+    }
+
     if (limitNumeric === null) {
       console.info(
         "LiterateGoggles: Chess daily limit configuration missing or invalid. Skipping enforcement.",
         { gamesToday, limitValue }
       );
-      detachChessOverlay(document, state);
+      setChessBlock(document, state, null);
       return;
     }
+
+    const availableAt = getEndOfDayTimestamp(now);
 
     if (gamesToday >= limitNumeric) {
       console.warn("LiterateGoggles: Chess daily limit reached.", {
         gamesToday,
         limit: limitNumeric,
       });
-      ensureChessOverlay(document, state);
+      setChessBlock(document, state, {
+        reason: "limit",
+        gamesToday,
+        limit: limitNumeric,
+        availableAt,
+      });
     } else {
       console.info("LiterateGoggles: Chess daily limit not reached.", {
         gamesToday,
         limit: limitNumeric,
       });
-      detachChessOverlay(document, state);
+      setChessBlock(document, state, null);
     }
   } catch (error) {
     console.warn(
@@ -641,6 +760,37 @@ async function checkChessDailyLimit(document, win, state) {
       error
     );
   }
+}
+
+async function evaluateChessBlock(document, win, state) {
+  if (!document || !win || !state || state.aborted) {
+    return;
+  }
+
+  const manualUntil = normalizeTimestamp(state.manualBlockUntil);
+  const now = Date.now();
+
+  if (manualUntil && manualUntil > now) {
+    setChessBlock(document, state, {
+      reason: "manual",
+      availableAt: manualUntil,
+    });
+    return;
+  }
+
+  if (manualUntil && manualUntil <= now) {
+    state.manualBlockUntil = null;
+    try {
+      chrome.storage.sync.remove(CHESS_MANUAL_BLOCK_STORAGE_KEY);
+    } catch (error) {
+      console.warn(
+        "LiterateGoggles: Failed to clear expired manual Chess.com block.",
+        error
+      );
+    }
+  }
+
+  await checkChessDailyLimit(document, win, state);
 }
 
 const CHESS_DAILY_LIMIT_IGNORED_URL_PREFIXES = [
@@ -655,7 +805,7 @@ const chessDailyLimitFeature = {
   id: "chessDailyLimit",
   name: "Chess.com daily limiter",
   description:
-    "Blocks Chess.com with a black overlay if you already played more than three games today.",
+    "Blocks Chess.com with a black overlay after three games and offers a FilthLatch manual lock for the rest of the day.",
   storageKey: "literategoggles.features.chessDailyLimit.enabled",
   defaultEnabled: true,
   appliesTo(location) {
@@ -676,7 +826,38 @@ const chessDailyLimitFeature = {
     }
     state.aborted = false;
     console.info("LiterateGoggles: Chess daily limit feature enabled.");
-    checkChessDailyLimit(document, window, state);
+
+    const applyManualBlock = (value) => {
+      state.manualBlockUntil = normalizeTimestamp(value);
+      evaluateChessBlock(document, window, state);
+    };
+
+    try {
+      chrome.storage.sync.get(CHESS_MANUAL_BLOCK_STORAGE_KEY, (result) => {
+        if (state.aborted) {
+          return;
+        }
+        applyManualBlock(result?.[CHESS_MANUAL_BLOCK_STORAGE_KEY]);
+      });
+    } catch (error) {
+      console.warn(
+        "LiterateGoggles: Failed to read manual Chess.com block state.",
+        error
+      );
+      evaluateChessBlock(document, window, state);
+    }
+
+    const handleStorageChange = (changes, area) => {
+      if (area !== "sync") {
+        return;
+      }
+      if (CHESS_MANUAL_BLOCK_STORAGE_KEY in changes) {
+        applyManualBlock(changes[CHESS_MANUAL_BLOCK_STORAGE_KEY].newValue);
+      }
+    };
+
+    state.storageListener = handleStorageChange;
+    chrome.storage.onChanged.addListener(handleStorageChange);
   },
   onDisable({ document }) {
     const state = chessDailyLimitState.get(document);
@@ -685,6 +866,10 @@ const chessDailyLimitFeature = {
     }
     state.aborted = true;
     console.info("LiterateGoggles: Chess daily limit feature disabled.");
+    if (state.storageListener) {
+      chrome.storage.onChanged.removeListener(state.storageListener);
+      state.storageListener = null;
+    }
     detachChessOverlay(document, state);
   },
 };

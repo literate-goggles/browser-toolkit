@@ -1,9 +1,47 @@
 const LiterateGogglesRuntime = globalThis.LiterateGoggles || {};
 const GLOBAL_STORAGE_KEY =
   LiterateGogglesRuntime.globalStorageKey || "literategoggles.globalEnabled";
+const CHESS_MANUAL_BLOCK_KEY =
+  "literategoggles.features.chessDailyLimit.manualBlockUntil";
 const FEATURES = Array.isArray(LiterateGogglesRuntime.features)
   ? LiterateGogglesRuntime.features
   : [];
+
+function getEndOfDayTimestamp(now = new Date()) {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  return end.getTime();
+}
+
+function normalizeTimestamp(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function formatAvailability(timestamp) {
+  if (typeof timestamp !== "number" || Number.isNaN(timestamp)) {
+    return "";
+  }
+  const date = new Date(timestamp);
+  const time = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const day = date.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  return `${time} (${day})`;
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   const globalToggle = document.getElementById("global-toggle");
@@ -13,6 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const storageKeys = [
     GLOBAL_STORAGE_KEY,
+    CHESS_MANUAL_BLOCK_KEY,
     ...FEATURES.map((feature) => feature.storageKey),
   ];
   const featureControls = new Map();
@@ -68,13 +107,48 @@ document.addEventListener("DOMContentLoaded", () => {
     listItem.appendChild(label);
     listItem.appendChild(status);
 
+    let filthLatchButton = null;
+    let filthLatchNote = null;
+    if (feature.id === "chessDailyLimit") {
+      const actions = document.createElement("div");
+      actions.className = "feature-actions";
+
+      filthLatchButton = document.createElement("button");
+      filthLatchButton.type = "button";
+      filthLatchButton.className = "filthlatch-button";
+      filthLatchButton.textContent = "FilthLatch";
+      filthLatchButton.title =
+        "Trigger the FilthLatch lock and block Chess.com for the rest of today.";
+
+      filthLatchNote = document.createElement("span");
+      filthLatchNote.className = "filthlatch-note";
+      filthLatchNote.textContent =
+        "FilthLatch keeps Chess.com closed until tonight.";
+
+      actions.appendChild(filthLatchButton);
+      actions.appendChild(filthLatchNote);
+
+      filthLatchButton.addEventListener("click", () => {
+        const until = getEndOfDayTimestamp();
+        chrome.storage.sync.set({ [CHESS_MANUAL_BLOCK_KEY]: until });
+      });
+
+      listItem.appendChild(actions);
+    }
+
     featureList.appendChild(listItem);
 
     checkbox.addEventListener("change", () => {
       chrome.storage.sync.set({ [feature.storageKey]: checkbox.checked });
     });
 
-    const control = { checkbox, status, element: listItem };
+    const control = {
+      checkbox,
+      status,
+      element: listItem,
+      filthLatchButton,
+      filthLatchNote,
+    };
     featureControls.set(feature.id, control);
     return control;
   }
@@ -102,6 +176,27 @@ document.addEventListener("DOMContentLoaded", () => {
       featureEnabled,
       globalEnabled
     );
+
+    if (feature.id === "chessDailyLimit") {
+      const blockUntil = normalizeTimestamp(storageState[CHESS_MANUAL_BLOCK_KEY]);
+      const now = Date.now();
+      const isBlocked = blockUntil && blockUntil > now;
+
+      if (control.filthLatchButton) {
+        control.filthLatchButton.disabled = Boolean(isBlocked);
+      }
+
+      if (control.filthLatchNote) {
+        if (isBlocked) {
+          control.filthLatchNote.textContent = `FilthLatch active until ${formatAvailability(blockUntil)}.`;
+          control.element.dataset.filthLatchState = "armed";
+        } else {
+          control.filthLatchNote.textContent =
+            "Go FilthLatch to block Chess.com for the rest of today.";
+          control.element.dataset.filthLatchState = "idle";
+        }
+      }
+    }
   }
 
   function updateGlobalUI(isEnabled) {
