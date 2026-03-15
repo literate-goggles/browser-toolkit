@@ -1,6 +1,6 @@
 (function registerLiterateGogglesConfig() {
   const defaults = {
-    chessDailyGameLimit: 3,
+    chessDailyGameLimit: 5,
   };
 
   if (!globalThis.LiterateGogglesConfig) {

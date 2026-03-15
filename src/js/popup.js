@@ -232,6 +232,29 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.sync.set({ [GLOBAL_STORAGE_KEY]: globalToggle.checked });
   });
 
+  const copyTabsButton = document.getElementById("copy-tabs-button");
+  copyTabsButton.addEventListener("click", async () => {
+    try {
+      const tabs = await chrome.tabs.query({});
+      const urls = tabs
+        .map((tab) => tab.url)
+        .filter((url) => url && !url.startsWith("chrome://") && !url.startsWith("chrome-extension://"))
+        .map((url) => decodeURI(url))
+        .join("\n");
+      await navigator.clipboard.writeText(urls);
+      copyTabsButton.textContent = "Copied!";
+      setTimeout(() => {
+        copyTabsButton.textContent = "Copy all tab URLs";
+      }, 1500);
+    } catch (error) {
+      console.warn("LiterateGoggles: Failed to copy tab URLs.", error);
+      copyTabsButton.textContent = "Failed";
+      setTimeout(() => {
+        copyTabsButton.textContent = "Copy all tab URLs";
+      }, 1500);
+    }
+  });
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") {
       return;

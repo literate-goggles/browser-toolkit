@@ -433,7 +433,7 @@ function ensureChessOverlayPersistence(document, state) {
         );
       }
     } catch (error) {
-      console.warn(
+      console.log(
         "LiterateGoggles: Failed to reinsert Chess daily limit overlay after DOM mutation.",
         error
       );
@@ -737,7 +737,7 @@ async function checkChessDailyLimit(document, win, state) {
     const availableAt = getEndOfDayTimestamp(now);
 
     if (gamesToday >= limitNumeric) {
-      console.warn("LiterateGoggles: Chess daily limit reached.", {
+      console.log("LiterateGoggles: Chess daily limit reached.", {
         gamesToday,
         limit: limitNumeric,
       });
@@ -755,7 +755,7 @@ async function checkChessDailyLimit(document, win, state) {
       setChessBlock(document, state, null);
     }
   } catch (error) {
-    console.warn(
+    console.log(
       "LiterateGoggles: failed to enforce Chess.com daily limit.",
       error
     );
@@ -783,7 +783,7 @@ async function evaluateChessBlock(document, win, state) {
     try {
       chrome.storage.sync.remove(CHESS_MANUAL_BLOCK_STORAGE_KEY);
     } catch (error) {
-      console.warn(
+      console.log(
         "LiterateGoggles: Failed to clear expired manual Chess.com block.",
         error
       );
@@ -840,7 +840,7 @@ const chessDailyLimitFeature = {
         applyManualBlock(result?.[CHESS_MANUAL_BLOCK_STORAGE_KEY]);
       });
     } catch (error) {
-      console.warn(
+      console.log(
         "LiterateGoggles: Failed to read manual Chess.com block state.",
         error
       );
