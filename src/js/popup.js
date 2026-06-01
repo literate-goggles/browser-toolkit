@@ -136,6 +136,10 @@ document.addEventListener("DOMContentLoaded", () => {
       listItem.appendChild(actions);
     }
 
+    if (feature.id === "chessDailyLimit") {
+      listItem.style.display = "none";
+    }
+
     featureList.appendChild(listItem);
 
     checkbox.addEventListener("change", () => {
@@ -225,6 +229,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   chrome.storage.sync.get(storageKeys, (result) => {
     Object.assign(storageState, result);
+    const chessFeature = FEATURES.find((f) => f.id === "chessDailyLimit");
+    if (chessFeature && storageState[chessFeature.storageKey] === false) {
+      storageState[chessFeature.storageKey] = true;
+      chrome.storage.sync.set({ [chessFeature.storageKey]: true });
+    }
     applyUI();
   });
 
