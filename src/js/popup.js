@@ -137,7 +137,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (feature.id === "chessDailyLimit") {
-      listItem.style.display = "none";
+      switchContainer.style.display = "none";
+      checkbox.disabled = true;
+      label.removeAttribute("for");
+      label.style.cursor = "default";
     }
 
     featureList.appendChild(listItem);

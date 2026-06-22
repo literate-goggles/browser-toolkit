@@ -80,7 +80,9 @@ function applyFeatures() {
       return;
     }
 
-    const featureEnabled = globalEnabled && readFeatureState(feature);
+    const allowGlobalDisable = !feature.bypassGlobal;
+    const featureEnabled =
+      (globalEnabled || !allowGlobalDisable) && readFeatureState(feature);
     applyFeature(feature, featureEnabled);
   });
 }

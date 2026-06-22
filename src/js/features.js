@@ -357,6 +357,16 @@ const CHESS_DAILY_LIMIT_QUOTES = [
   "You've turned a game of logic into interpretive dance.",
   "If this was war, your own troops would defect out of mercy.",
   "Your brain's connection timed out three moves ago.",
+  "Your opening theory peaked at 'I move pawn forward, yes?'",
+  "Bobby Fischer is spinning in his grave hard enough to power a small village.",
+  "You blundered so loudly the neighbors complained.",
+  "Even your bishop is having a crisis of faith.",
+  "If chess.com had a refund policy for your dignity, you'd be rich.",
+  "Your rating graph looks like a stock right before bankruptcy.",
+  "You're not stuck in a losing streak; you're its founding member.",
+  "The engine evaluation just sighed and asked for a smoke break.",
+  "Your endgame technique is mostly hoping the other player has a stroke.",
+  "Touching grass would be a tactical improvement.",
 ];
 
 function getChessDailyLimitState(doc) {
@@ -533,13 +543,16 @@ function ensureChessOverlay(document, state, blockInfo) {
       limitNumeric === null ? "the daily limit" : `${limitText} ${gameWord}`;
 
     const availabilityText = blockInfo.availableAt
-      ? `Chess.com unlocks at ${formatAvailability(blockInfo.availableAt)}.`
-      : "Chess.com unlocks tomorrow.";
+      ? `This site unlocks at ${formatAvailability(blockInfo.availableAt)}.`
+      : "This site unlocks tomorrow.";
 
     if (subline) {
       if (blockInfo.reason === "manual") {
         subline.textContent =
           "FilthLatch engaged. You volunteered to wall off Chess.com for the rest of today.";
+      } else if (blockInfo.reason === "afternoon") {
+        subline.textContent =
+          "It's past noon. Afternoons are for real work — chess.com and taketaketake.com stay locked until tomorrow.";
       } else {
         const gamesText =
           typeof blockInfo.gamesToday === "number" &&
@@ -767,6 +780,21 @@ async function evaluateChessBlock(document, win, state) {
     return;
   }
 
+  const nowDate = new Date();
+  if (nowDate.getHours() >= 12) {
+    setChessBlock(document, state, {
+      reason: "afternoon",
+      availableAt: getEndOfDayTimestamp(nowDate),
+    });
+    return;
+  }
+
+  const isChessCom = /(^|\.)chess\.com$/i.test(win.location.hostname);
+  if (!isChessCom) {
+    setChessBlock(document, state, null);
+    return;
+  }
+
   const manualUntil = normalizeTimestamp(state.manualBlockUntil);
   const now = Date.now();
 
@@ -808,8 +836,15 @@ const chessDailyLimitFeature = {
     "Blocks Chess.com with a black overlay after three games and offers a FilthLatch manual lock for the rest of the day.",
   storageKey: "literategoggles.features.chessDailyLimit.enabled",
   defaultEnabled: true,
+  bypassGlobal: true,
   appliesTo(location) {
-    if (!location || !/(^|\.)chess\.com$/i.test(location.hostname)) {
+    if (!location) {
+      return false;
+    }
+    if (/(^|\.)taketaketake\.com$/i.test(location.hostname)) {
+      return true;
+    }
+    if (!/(^|\.)chess\.com$/i.test(location.hostname)) {
       return false;
     }
 
