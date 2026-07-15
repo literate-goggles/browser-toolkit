@@ -15,6 +15,7 @@ __pycache__/
 # Auto-generated vocab (produced by scripts/vocab_builder.py)
 src/js/vocab.js
 src/js/vocab-c1.js
+src/js/vocab-pte.js
 
 # OS-specific files
 .DS_Store

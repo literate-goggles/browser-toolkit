@@ -38,6 +38,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
 BATCH_SIZE = 40
 MAX_TEXT_CHARS = 45_000
+CHUNK_SIZE = 30_000
 JSON_MARKER_START = "/*__LG_JSON__*/"
 JSON_MARKER_END = "/*__LG_END__*/"
 HTTP_USER_AGENT = (
@@ -69,6 +70,104 @@ def extract_pdf_text(pdf_path: Path, page_range: str | None) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     text = re.sub(r"\n{2,}", "\n\n", text)
     return text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Domain-specific PDF cleaners
+# ---------------------------------------------------------------------------
+
+_PTE_SECTIONS = (
+    "Read Aloud",
+    "Repeat Sentence",
+    "Describe Image",
+    "Retell Lecture",
+    "Answer Short Question",
+    "Summarize Written Text",
+    "Summarize Group Discussion",
+    "Summarize Spoken Text",
+    "Write Essay",
+    "Reading & Writing",
+    "Multiple Choice",
+    "Multiple-choice",
+    "Fill in the Blanks",
+    "Reorder Paragraphs",
+    "Reading: Fill in the Blanks",
+    "Highlight Correct Summary",
+    "Select Missing Word",
+    "Highlight Incorrect Words",
+    "Write from Dictation",
+    "Personal introduction",
+    "Speaking",
+    "Reading",
+    "Writing",
+    "Listening",
+)
+_PTE_SECTION_RE = re.compile(
+    r"^(?:" + "|".join(re.escape(s) for s in _PTE_SECTIONS) + r")"
+    r"(?:\s*\([^)]*\))?(?:\s+\d+)?[:.]?\s*$",
+    re.IGNORECASE,
+)
+_PTE_LABEL_RE = re.compile(
+    r"^(Sample answer|Suggested answer|Correct answer|Correct|Incorrect|Answer|Note)\s*:.*$",
+    re.IGNORECASE,
+)
+
+
+def clean_pte_text(raw: str) -> str:
+    kept: list[str] = []
+    for line in raw.split("\n"):
+        stripped = line.strip()
+        if not stripped:
+            kept.append("")
+            continue
+        if "Pearson Education Limited" in stripped:
+            continue
+        # Bare page number (with optional trailing punctuation)
+        if re.fullmatch(r"\d{1,3}[.)]?", stripped):
+            continue
+        if _PTE_SECTION_RE.match(stripped):
+            continue
+        if _PTE_LABEL_RE.match(stripped):
+            continue
+        kept.append(line)
+    text = "\n".join(kept)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+PARSERS = {
+    "plain": lambda text: text,
+    "pte": clean_pte_text,
+}
+
+
+def chunk_text(text: str, max_chars: int = CHUNK_SIZE) -> list[str]:
+    if len(text) <= max_chars:
+        return [text]
+    paras = re.split(r"\n\s*\n", text)
+    chunks: list[str] = []
+    current: list[str] = []
+    current_len = 0
+    for para in paras:
+        para_len = len(para) + 2  # for the joining "\n\n"
+        if current and current_len + para_len > max_chars:
+            chunks.append("\n\n".join(current))
+            current = [para]
+            current_len = para_len
+        else:
+            current.append(para)
+            current_len += para_len
+    if current:
+        chunks.append("\n\n".join(current))
+    # If a single paragraph is oversized, hard-split it.
+    result: list[str] = []
+    for chunk in chunks:
+        if len(chunk) <= max_chars:
+            result.append(chunk)
+            continue
+        for start in range(0, len(chunk), max_chars):
+            result.append(chunk[start : start + max_chars])
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -412,36 +511,58 @@ def _consume_batch(
 
 
 def generate_from_pdf(
-    text: str,
+    chunks: list[str],
     count: int,
     api_key: str,
     model: str,
 ) -> list[dict]:
     items: list[dict] = []
     seen: set[str] = set()
-    remaining = count
-    batch_num = 0
-    while remaining > 0:
-        batch_num += 1
-        want = min(BATCH_SIZE, remaining)
-        print(f"      batch {batch_num}: asking for {want} items...")
-        try:
-            data = call_openrouter(
-                build_pdf_prompt(text, want, sorted(seen)), api_key, model
-            )
-        except Exception as exc:
-            print(f"      batch {batch_num} failed: {exc}", file=sys.stderr)
-            time.sleep(2)
-            continue
-        added = _consume_batch(data.get("items"), items, seen, count)
-        print(
-            f"      batch {batch_num}: kept {added} new items "
-            f"(total {len(items)}/{count})"
-        )
-        remaining = count - len(items)
-        if added == 0:
-            print("      no new items produced; stopping to avoid a loop")
+    if not chunks:
+        return items
+    n_chunks = len(chunks)
+    per_chunk = max(1, (count + n_chunks - 1) // n_chunks)
+    for chunk_idx, chunk in enumerate(chunks):
+        remaining_total = count - len(items)
+        if remaining_total <= 0:
             break
+        chunk_target = min(per_chunk, remaining_total)
+        # Give the last chunk a chance to fill any shortfall from earlier chunks.
+        if chunk_idx == n_chunks - 1:
+            chunk_target = remaining_total
+        print(
+            f"  chunk {chunk_idx + 1}/{n_chunks} ({len(chunk)} chars): "
+            f"aiming for {chunk_target} items"
+        )
+        chunk_added_total = 0
+        remaining_chunk = chunk_target
+        batch_num = 0
+        while remaining_chunk > 0:
+            batch_num += 1
+            want = min(BATCH_SIZE, remaining_chunk)
+            print(f"      batch {batch_num}: asking for {want} items...")
+            try:
+                data = call_openrouter(
+                    build_pdf_prompt(chunk, want, sorted(seen)), api_key, model
+                )
+            except Exception as exc:
+                print(f"      batch {batch_num} failed: {exc}", file=sys.stderr)
+                time.sleep(2)
+                continue
+            added = _consume_batch(data.get("items"), items, seen, count)
+            chunk_added_total += added
+            print(
+                f"      batch {batch_num}: kept {added} new items "
+                f"(chunk {chunk_added_total}/{chunk_target}, "
+                f"total {len(items)}/{count})"
+            )
+            remaining_chunk = chunk_target - chunk_added_total
+            remaining_total = count - len(items)
+            if remaining_total <= 0:
+                break
+            if added == 0:
+                print("      no new items from this chunk; moving on")
+                break
     return items
 
 
@@ -486,6 +607,18 @@ def main() -> int:
     parser.add_argument("--out", default="src/js/vocab.js", help="Output JS file")
     parser.add_argument("--count", type=int, default=100, help="Total items (PDF mode) or word cap (wordlist mode)")
     parser.add_argument("--pages", default=None, help="1-indexed page range like '1-24' (PDF mode)")
+    parser.add_argument(
+        "--parser",
+        choices=sorted(PARSERS.keys()),
+        default="plain",
+        help="Domain-specific PDF cleaner to apply before chunking (default: plain)",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=int,
+        default=CHUNK_SIZE,
+        help=f"Max chars per chunk sent to the LLM (default: {CHUNK_SIZE})",
+    )
     parser.add_argument("--source-id", default=None, help="ID to embed in the file (e.g., 'orwell1984')")
     parser.add_argument("--source-name", default=None, help="Display name (e.g., '1984 (chapters 1-2)')")
     parser.add_argument("--model", default=DEFAULT_MODEL)
@@ -531,16 +664,21 @@ def main() -> int:
             print(f"ERROR: PDF not found: {pdf_path}", file=sys.stderr)
             return 1
         print(f"[1/3] Extracting text from {pdf_path.name}...")
-        text = extract_pdf_text(pdf_path, args.pages)
-        print(f"      Got {len(text)} chars of text.")
+        raw_text = extract_pdf_text(pdf_path, args.pages)
+        print(f"      Raw: {len(raw_text)} chars.")
+        cleaner = PARSERS[args.parser]
+        text = cleaner(raw_text)
+        if args.parser != "plain":
+            print(f"      After --parser {args.parser}: {len(text)} chars.")
         if not text:
             print("ERROR: no text extracted", file=sys.stderr)
             return 1
+        chunks = chunk_text(text, args.chunk_size)
         print(
             f"[2/3] Requesting {args.count} quiz items from {args.model} "
-            f"(batches of {BATCH_SIZE})..."
+            f"across {len(chunks)} chunk(s), batches of {BATCH_SIZE}..."
         )
-        items = generate_from_pdf(text, args.count, api_key, args.model)
+        items = generate_from_pdf(chunks, args.count, api_key, args.model)
     else:
         print(f"[1/3] Fetching word list: {args.wordlist_url}")
         words = fetch_esl_wordlist(args.wordlist_url)
