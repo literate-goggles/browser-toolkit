@@ -18,6 +18,13 @@ export default function HomePage() {
               (books, CEFR lists, exam banks).
             </span>
           </Link>
+          <Link className="tool-card" href="/repeat-sentence/">
+            <span className="tool-title">Repeat sentence</span>
+            <span className="tool-description">
+              PTE-style listening practice — an audio plays once, you try to
+              repeat it back, then reveal the text to check.
+            </span>
+          </Link>
         </div>
       </main>
     </div>

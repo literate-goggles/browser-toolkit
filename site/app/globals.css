@@ -460,3 +460,64 @@ button {
   border-radius: 8px;
   background: var(--card-background);
 }
+
+.repeat-card {
+  gap: 16px;
+}
+
+.repeat-audio-block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px 0;
+}
+
+.repeat-play {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(90deg, #0ea5e9, #0284c7);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.25);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .repeat-play:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.35);
+  }
+}
+
+.repeat-play:disabled {
+  opacity: 0.55;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.repeat-text {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--background-color);
+  border: 1px solid var(--border-color);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-color);
+}
+
+.repeat-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.repeat-actions .vocab-next {
+  flex: 1 1 auto;
+}

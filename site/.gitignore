@@ -6,3 +6,7 @@ out/
 
 # Vocab JSON is derived from the (gitignored) extension vocab JS files
 public/vocab/*.json
+
+# Repeat-sentence audio + manifest, produced by scripts/repeat_sentence_builder.py
+public/repeat-sentence/*.wav
+public/repeat-sentence/problems.json
