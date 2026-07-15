@@ -302,7 +302,13 @@ export default function VocabQuiz() {
             <button
               type="button"
               className="vocab-reveal"
-              onClick={() => setRevealed(true)}
+              onClick={(event) => {
+                // Clear focus before the button unmounts: iOS Safari otherwise
+                // keeps :hover/:focus on whichever new button ends up under the
+                // last touch point (usually option 2 or 3).
+                event.currentTarget.blur();
+                setRevealed(true);
+              }}
             >
               Reveal choices
             </button>

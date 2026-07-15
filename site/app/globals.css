@@ -23,6 +23,22 @@ body {
   background: var(--background-color);
   color: var(--text-color);
   line-height: 1.45;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+select,
+a,
+.tool-card {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Suppress the visible focus ring on touch — keyboard users still get
+ * :focus-visible outlines. */
+button:focus:not(:focus-visible),
+select:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
 }
 
 a {
@@ -94,10 +110,12 @@ button {
     border-color 0.15s ease;
 }
 
-.tool-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
-  border-color: var(--primary-color);
+@media (hover: hover) and (pointer: fine) {
+  .tool-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    border-color: var(--primary-color);
+  }
 }
 
 .tool-title {
@@ -159,9 +177,11 @@ button {
   box-shadow: 0 6px 16px rgba(79, 70, 229, 0.25);
 }
 
-.vocab-controls .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .vocab-controls .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+  }
 }
 
 .vocab-controls .btn-session {
@@ -169,9 +189,11 @@ button {
   box-shadow: 0 6px 16px rgba(2, 132, 199, 0.25);
 }
 
-.vocab-controls .btn-session:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(2, 132, 199, 0.35);
+@media (hover: hover) and (pointer: fine) {
+  .vocab-controls .btn-session:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(2, 132, 199, 0.35);
+  }
 }
 
 .vocab-controls button:disabled {
@@ -246,8 +268,10 @@ button {
   cursor: pointer;
 }
 
-.vocab-speak:hover:not(:disabled) {
-  border-color: var(--primary-color);
+@media (hover: hover) and (pointer: fine) {
+  .vocab-speak:hover:not(:disabled) {
+    border-color: var(--primary-color);
+  }
 }
 
 .vocab-speak:disabled {
@@ -267,8 +291,10 @@ button {
   align-self: stretch;
 }
 
-.vocab-reveal:hover:not(:disabled) {
-  opacity: 0.9;
+@media (hover: hover) and (pointer: fine) {
+  .vocab-reveal:hover:not(:disabled) {
+    opacity: 0.9;
+  }
 }
 
 .vocab-reveal:disabled {
@@ -296,9 +322,11 @@ button {
     border-color 0.15s ease;
 }
 
-.vocab-option:hover:not(:disabled) {
-  background: var(--card-background);
-  border-color: var(--primary-color);
+@media (hover: hover) and (pointer: fine) {
+  .vocab-option:hover:not(:disabled) {
+    background: var(--card-background);
+    border-color: var(--primary-color);
+  }
 }
 
 .vocab-option:disabled {
@@ -372,8 +400,10 @@ button {
   cursor: pointer;
 }
 
-.vocab-next:hover {
-  border-color: var(--primary-color);
+@media (hover: hover) and (pointer: fine) {
+  .vocab-next:hover {
+    border-color: var(--primary-color);
+  }
 }
 
 .vocab-summary {
@@ -415,8 +445,10 @@ button {
   align-self: flex-start;
 }
 
-.back-link:hover {
-  color: var(--primary-color);
+@media (hover: hover) and (pointer: fine) {
+  .back-link:hover {
+    color: var(--primary-color);
+  }
 }
 
 .vocab-empty {
