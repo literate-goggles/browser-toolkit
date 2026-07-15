@@ -1,0 +1,8 @@
+node_modules/
+.next/
+out/
+.env
+.env.local
+
+# Vocab JSON is derived from the (gitignored) extension vocab JS files
+public/vocab/*.json
