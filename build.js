@@ -20,6 +20,10 @@ fs.copySync(
   path.join(__dirname, "popup.html"),
   path.join(distDir, "popup.html")
 );
+fs.copySync(
+  path.join(__dirname, "quiz.html"),
+  path.join(distDir, "quiz.html")
+);
 fs.copySync(path.join(srcDir, "js"), path.join(distDir, "js"));
 fs.copySync(path.join(srcDir, "css"), path.join(distDir, "css"));
 
@@ -113,6 +117,9 @@ if (process.argv.includes("--watch")) {
     } else if (filePath === path.join(__dirname, "popup.html")) {
       fs.copySync(filePath, path.join(distDir, "popup.html"));
       console.log(`Updated: popup.html`);
+    } else if (filePath === path.join(__dirname, "quiz.html")) {
+      fs.copySync(filePath, path.join(distDir, "quiz.html"));
+      console.log(`Updated: quiz.html`);
     }
   }
 
@@ -121,6 +128,7 @@ if (process.argv.includes("--watch")) {
       path.join(srcDir, "**/*"),
       path.join(__dirname, "manifest.json"),
       path.join(__dirname, "popup.html"),
+      path.join(__dirname, "quiz.html"),
     ],
     {
       persistent: true,

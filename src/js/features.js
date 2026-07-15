@@ -909,11 +909,24 @@ const chessDailyLimitFeature = {
   },
 };
 
+const englishVocabFeature = {
+  id: "englishVocab",
+  name: "English vocab quiz",
+  description:
+    "Every 15 minutes, a Chrome notification serves a new word from the book you're reading. Also available on demand from the popup.",
+  storageKey: "literategoggles.features.englishVocab.enabled",
+  defaultEnabled: true,
+  appliesTo() {
+    return false;
+  },
+};
+
 const LITERATEGOGGLES_FEATURES = [
   leetCodeDifficultyFeature,
   aimchessHideCoordinatesFeature,
   stepchessHideCoordinatesFeature,
   chessDailyLimitFeature,
+  englishVocabFeature,
 ];
 
 if (!globalThis.LiterateGoggles) {

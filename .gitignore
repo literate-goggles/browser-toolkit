@@ -7,6 +7,15 @@ dist/
 # Environment variables
 .env
 
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Auto-generated vocab (produced by scripts/vocab_builder.py)
+src/js/vocab.js
+src/js/vocab-c1.js
+
 # OS-specific files
 .DS_Store
 Thumbs.db

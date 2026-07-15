@@ -3,6 +3,13 @@ const GLOBAL_STORAGE_KEY =
   LiterateGogglesRuntime.globalStorageKey || "literategoggles.globalEnabled";
 const CHESS_MANUAL_BLOCK_KEY =
   "literategoggles.features.chessDailyLimit.manualBlockUntil";
+const VOCAB_SOURCES = Array.isArray(LiterateGogglesRuntime.vocabSources)
+  ? LiterateGogglesRuntime.vocabSources.filter(
+      (s) => s && typeof s.id === "string" && Array.isArray(s.items) && s.items.length,
+    )
+  : [];
+const VOCAB_HAS_ITEMS = VOCAB_SOURCES.length > 0
+  || (Array.isArray(LiterateGogglesRuntime.vocab) && LiterateGogglesRuntime.vocab.length > 0);
 const FEATURES = Array.isArray(LiterateGogglesRuntime.features)
   ? LiterateGogglesRuntime.features
   : [];
@@ -43,6 +50,14 @@ function formatAvailability(timestamp) {
   return `${time} (${day})`;
 }
 
+function openQuizTab(mode, sourceId) {
+  const params = new URLSearchParams({ mode });
+  if (sourceId) params.set("source", sourceId);
+  const url = chrome.runtime.getURL(`quiz.html?${params.toString()}`);
+  chrome.tabs.create({ url });
+  window.close();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const globalToggle = document.getElementById("global-toggle");
   const stateIcon = document.getElementById("state-icon");
@@ -56,6 +71,10 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
   const featureControls = new Map();
   const storageState = {};
+
+  const copyTabsControl = createCopyTabsCard();
+  featureList.appendChild(copyTabsControl.element);
+  copyTabsControl.refreshCount();
 
   function ensureFeatureControl(feature) {
     if (featureControls.has(feature.id)) {
@@ -133,6 +152,58 @@ document.addEventListener("DOMContentLoaded", () => {
         chrome.storage.sync.set({ [CHESS_MANUAL_BLOCK_KEY]: until });
       });
 
+      listItem.appendChild(actions);
+    }
+
+    if (feature.id === "englishVocab") {
+      const actions = document.createElement("div");
+      actions.className = "feature-actions feature-actions--stacked";
+
+      let sourceSelect = null;
+      if (VOCAB_SOURCES.length > 1) {
+        sourceSelect = document.createElement("select");
+        sourceSelect.className = "vocab-source-select";
+        sourceSelect.setAttribute("aria-label", "Vocab source");
+        VOCAB_SOURCES.forEach((src) => {
+          const opt = document.createElement("option");
+          opt.value = src.id;
+          opt.textContent = `${src.name} (${src.items.length})`;
+          sourceSelect.appendChild(opt);
+        });
+        actions.appendChild(sourceSelect);
+      } else if (VOCAB_SOURCES.length === 1) {
+        const singleLabel = document.createElement("div");
+        singleLabel.className = "vocab-source-label";
+        singleLabel.textContent = `${VOCAB_SOURCES[0].name} · ${VOCAB_SOURCES[0].items.length} words`;
+        actions.appendChild(singleLabel);
+      }
+
+      function currentSourceId() {
+        if (sourceSelect) return sourceSelect.value;
+        return VOCAB_SOURCES[0] ? VOCAB_SOURCES[0].id : "";
+      }
+
+      const singleBtn = document.createElement("button");
+      singleBtn.type = "button";
+      singleBtn.className = "vocab-action-button vocab-action-button--primary";
+      singleBtn.textContent = "Show me a word";
+      singleBtn.addEventListener("click", () => openQuizTab("single", currentSourceId()));
+
+      const sessionBtn = document.createElement("button");
+      sessionBtn.type = "button";
+      sessionBtn.className = "vocab-action-button vocab-action-button--session";
+      sessionBtn.textContent = "Study all words";
+      sessionBtn.addEventListener("click", () => openQuizTab("session", currentSourceId()));
+
+      if (!VOCAB_HAS_ITEMS) {
+        singleBtn.disabled = true;
+        sessionBtn.disabled = true;
+        singleBtn.title = "Run scripts/vocab_builder.py to generate a list.";
+        sessionBtn.title = singleBtn.title;
+      }
+
+      actions.appendChild(singleBtn);
+      actions.appendChild(sessionBtn);
       listItem.appendChild(actions);
     }
 
@@ -244,29 +315,6 @@ document.addEventListener("DOMContentLoaded", () => {
     chrome.storage.sync.set({ [GLOBAL_STORAGE_KEY]: globalToggle.checked });
   });
 
-  const copyTabsButton = document.getElementById("copy-tabs-button");
-  copyTabsButton.addEventListener("click", async () => {
-    try {
-      const tabs = await chrome.tabs.query({});
-      const urls = tabs
-        .map((tab) => tab.url)
-        .filter((url) => url && !url.startsWith("chrome://") && !url.startsWith("chrome-extension://"))
-        .map((url) => decodeURI(url))
-        .join("\n");
-      await navigator.clipboard.writeText(urls);
-      copyTabsButton.textContent = "Copied!";
-      setTimeout(() => {
-        copyTabsButton.textContent = "Copy all tab URLs";
-      }, 1500);
-    } catch (error) {
-      console.warn("LiterateGoggles: Failed to copy tab URLs.", error);
-      copyTabsButton.textContent = "Failed";
-      setTimeout(() => {
-        copyTabsButton.textContent = "Copy all tab URLs";
-      }, 1500);
-    }
-  });
-
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "sync") {
       return;
@@ -285,3 +333,105 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
+
+function isCopyableTab(tab) {
+  if (!tab || !tab.url) {
+    return false;
+  }
+  if (tab.groupId !== undefined && tab.groupId !== -1) {
+    return false;
+  }
+  return (
+    !tab.url.startsWith("chrome://") &&
+    !tab.url.startsWith("chrome-extension://")
+  );
+}
+
+async function getCurrentWindowCopyableTabs() {
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  return tabs.filter(isCopyableTab);
+}
+
+function createCopyTabsCard() {
+  const listItem = document.createElement("li");
+  listItem.className = "feature-item feature-item--action";
+  listItem.dataset.featureId = "copyTabs";
+
+  const info = document.createElement("div");
+  info.className = "feature-info";
+
+  const title = document.createElement("span");
+  title.className = "feature-name";
+  title.textContent = "Copy tab URLs";
+
+  const description = document.createElement("span");
+  description.className = "feature-description";
+  description.textContent =
+    "Copies URLs from the current window. Grouped and chrome:// tabs are skipped.";
+
+  info.appendChild(title);
+  info.appendChild(description);
+
+  const actions = document.createElement("div");
+  actions.className = "feature-actions";
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "copy-tabs-button";
+
+  const buttonLabel = document.createElement("span");
+  buttonLabel.className = "copy-tabs-label";
+  buttonLabel.textContent = "Copy all tab URLs";
+
+  const countBadge = document.createElement("span");
+  countBadge.className = "copy-tabs-count";
+  countBadge.hidden = true;
+  countBadge.textContent = "0";
+
+  button.appendChild(buttonLabel);
+  button.appendChild(countBadge);
+  actions.appendChild(button);
+
+  listItem.appendChild(info);
+  listItem.appendChild(actions);
+
+  function setLabel(text) {
+    buttonLabel.textContent = text;
+  }
+
+  function setCount(value) {
+    if (typeof value !== "number") {
+      countBadge.hidden = true;
+      return;
+    }
+    countBadge.textContent = String(value);
+    countBadge.hidden = false;
+  }
+
+  async function refreshCount() {
+    try {
+      const tabs = await getCurrentWindowCopyableTabs();
+      setCount(tabs.length);
+    } catch (error) {
+      console.warn("LiterateGoggles: Failed to count tabs.", error);
+      setCount(null);
+    }
+  }
+
+  button.addEventListener("click", async () => {
+    try {
+      const tabs = await getCurrentWindowCopyableTabs();
+      const urls = tabs.map((tab) => decodeURI(tab.url)).join("\n");
+      await navigator.clipboard.writeText(urls);
+      setCount(tabs.length);
+      setLabel("Copied!");
+      setTimeout(() => setLabel("Copy all tab URLs"), 1500);
+    } catch (error) {
+      console.warn("LiterateGoggles: Failed to copy tab URLs.", error);
+      setLabel("Failed");
+      setTimeout(() => setLabel("Copy all tab URLs"), 1500);
+    }
+  });
+
+  return { element: listItem, refreshCount };
+}
