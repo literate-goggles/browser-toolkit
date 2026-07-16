@@ -8,6 +8,38 @@ const VOCAB_FILES = [
   { file: "vocab-pte.json" },
 ];
 
+const BAN_STORAGE_PREFIX = "dailychebakov:vocab:banned:";
+
+function bannedStorageKey(sourceId) {
+  return `${BAN_STORAGE_PREFIX}${sourceId}`;
+}
+
+function readBanned(sourceId) {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(bannedStorageKey(sourceId));
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return new Set();
+    return new Set(arr.map((s) => String(s).toLowerCase()));
+  } catch (error) {
+    console.warn("[vocab] failed to read banned list", error);
+    return new Set();
+  }
+}
+
+function writeBanned(sourceId, set) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      bannedStorageKey(sourceId),
+      JSON.stringify([...set]),
+    );
+  } catch (error) {
+    console.warn("[vocab] failed to persist banned list", error);
+  }
+}
+
 function shuffle(items) {
   const out = items.slice();
   for (let i = out.length - 1; i > 0; i -= 1) {
@@ -72,6 +104,7 @@ export default function VocabQuiz() {
   const [pickedOption, setPickedOption] = useState(null);
   const [session, setSession] = useState(null); // {order, position, total, correct, answered}
   const [summary, setSummary] = useState(null); // {correct, total}
+  const [bannedBySource, setBannedBySource] = useState({}); // { sourceId: Set<lowercased word> }
   const speechSupported =
     typeof window !== "undefined" && "speechSynthesis" in window;
 
@@ -126,10 +159,58 @@ export default function VocabQuiz() {
     [sources, sourceId],
   );
 
+  // Hydrate banned sets from localStorage once we know which sources exist.
+  useEffect(() => {
+    if (!sources.length) return;
+    const next = {};
+    sources.forEach((src) => {
+      next[src.id] = readBanned(src.id);
+    });
+    setBannedBySource(next);
+  }, [sources]);
+
+  const activeBanned = useMemo(() => {
+    if (!activeSource) return new Set();
+    return bannedBySource[activeSource.id] || new Set();
+  }, [activeSource, bannedBySource]);
+
+  const activeItems = useMemo(() => {
+    if (!activeSource) return [];
+    if (!activeBanned.size) return activeSource.items;
+    return activeSource.items.filter(
+      (item) => !activeBanned.has(String(item.word).toLowerCase()),
+    );
+  }, [activeSource, activeBanned]);
+
+  const banCurrentWord = useCallback(() => {
+    if (!currentQuiz || !activeSource) return;
+    const word = String(currentQuiz.word).toLowerCase();
+    setBannedBySource((prev) => {
+      const prevSet = prev[activeSource.id] || new Set();
+      if (prevSet.has(word)) return prev;
+      const nextSet = new Set(prevSet);
+      nextSet.add(word);
+      writeBanned(activeSource.id, nextSet);
+      return { ...prev, [activeSource.id]: nextSet };
+    });
+  }, [currentQuiz, activeSource]);
+
+  const unbanAll = useCallback(() => {
+    if (!activeSource) return;
+    setBannedBySource((prev) => {
+      const nextSet = new Set();
+      writeBanned(activeSource.id, nextSet);
+      return { ...prev, [activeSource.id]: nextSet };
+    });
+  }, [activeSource]);
+
+  const isCurrentBanned =
+    !!currentQuiz &&
+    activeBanned.has(String(currentQuiz.word).toLowerCase());
+
   const startSingle = useCallback(() => {
-    if (!activeSource || !activeSource.items.length) return;
-    const item =
-      activeSource.items[Math.floor(Math.random() * activeSource.items.length)];
+    if (!activeItems.length) return;
+    const item = activeItems[Math.floor(Math.random() * activeItems.length)];
     const quiz = quizFromItem(item);
     setSession(null);
     setSummary(null);
@@ -138,14 +219,18 @@ export default function VocabQuiz() {
     setRevealed(false);
     setPickedOption(null);
     speakWord(quiz.word);
-  }, [activeSource]);
+  }, [activeItems]);
 
   const startSession = useCallback(() => {
-    if (!activeSource || !activeSource.items.length) return;
-    const order = shuffle(activeSource.items.map((_, idx) => idx));
-    const firstQuiz = quizFromItem(activeSource.items[order[0]]);
+    if (!activeItems.length) return;
+    // Snapshot the item list at session start; banning mid-session only takes
+    // effect for future sessions, not the current shuffled order.
+    const snapshot = activeItems.slice();
+    const order = shuffle(snapshot.map((_, idx) => idx));
+    const firstQuiz = quizFromItem(snapshot[order[0]]);
     setSession({
       order,
+      snapshot,
       position: 0,
       total: order.length,
       correct: 0,
@@ -157,7 +242,7 @@ export default function VocabQuiz() {
     setRevealed(false);
     setPickedOption(null);
     speakWord(firstQuiz.word);
-  }, [activeSource]);
+  }, [activeItems]);
 
   const advance = useCallback(() => {
     if (session) {
@@ -168,7 +253,8 @@ export default function VocabQuiz() {
         return;
       }
       const nextIdx = session.order[nextPosition];
-      const quiz = quizFromItem(activeSource.items[nextIdx]);
+      const list = session.snapshot || activeItems;
+      const quiz = quizFromItem(list[nextIdx]);
       setSession({ ...session, position: nextPosition });
       setCurrentQuiz(quiz);
       setRevealed(false);
@@ -177,7 +263,7 @@ export default function VocabQuiz() {
     } else if (mode === "single") {
       startSingle();
     }
-  }, [session, activeSource, mode, startSingle]);
+  }, [session, activeItems, mode, startSingle]);
 
   const handleAnswer = useCallback(
     (option) => {
@@ -235,12 +321,29 @@ export default function VocabQuiz() {
             reset();
           }}
         >
-          {sources.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} ({s.items.length})
-            </option>
-          ))}
+          {sources.map((s) => {
+            const bannedInSrc = (bannedBySource[s.id] || new Set()).size;
+            const effective = s.items.length - bannedInSrc;
+            return (
+              <option key={s.id} value={s.id}>
+                {s.name} ({effective}
+                {bannedInSrc ? ` · ${bannedInSrc} banned` : ""})
+              </option>
+            );
+          })}
         </select>
+        {activeBanned.size > 0 && (
+          <div className="vocab-banned-hint">
+            <span>{activeBanned.size} banned in this source</span>
+            <button
+              type="button"
+              className="vocab-banned-reset"
+              onClick={unbanAll}
+            >
+              Unban all
+            </button>
+          </div>
+        )}
       </div>
 
       {mode === "idle" && (
@@ -249,7 +352,7 @@ export default function VocabQuiz() {
             type="button"
             className="btn-primary"
             onClick={startSingle}
-            disabled={!activeSource || !activeSource.items.length}
+            disabled={!activeItems.length}
           >
             Show me a word
           </button>
@@ -257,9 +360,9 @@ export default function VocabQuiz() {
             type="button"
             className="btn-session"
             onClick={startSession}
-            disabled={!activeSource || !activeSource.items.length}
+            disabled={!activeItems.length}
           >
-            Study all {activeSource ? activeSource.items.length : 0} words
+            Study all {activeItems.length} words
           </button>
         </div>
       )}
@@ -362,16 +465,27 @@ export default function VocabQuiz() {
                 </div>
               )}
 
-              <button
-                type="button"
-                className="vocab-next"
-                ref={nextRef}
-                onClick={advance}
-              >
-                {session && session.position + 1 >= session.total
-                  ? "See results"
-                  : "Next word"}
-              </button>
+              <div className="vocab-answered-actions">
+                <button
+                  type="button"
+                  className="vocab-next"
+                  ref={nextRef}
+                  onClick={advance}
+                >
+                  {session && session.position + 1 >= session.total
+                    ? "See results"
+                    : "Next word"}
+                </button>
+                <button
+                  type="button"
+                  className="vocab-ban"
+                  onClick={banCurrentWord}
+                  disabled={isCurrentBanned}
+                  title="Never show this word again on this device"
+                >
+                  {isCurrentBanned ? "Banned" : "Ban this word"}
+                </button>
+              </div>
             </>
           )}
         </>

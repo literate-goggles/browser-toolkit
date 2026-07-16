@@ -461,6 +461,70 @@ button {
   background: var(--card-background);
 }
 
+.vocab-banned-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 2px 0;
+}
+
+.vocab-banned-reset {
+  background: transparent;
+  border: none;
+  color: var(--primary-color);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vocab-banned-reset:hover {
+    background: rgba(37, 99, 235, 0.08);
+  }
+}
+
+.vocab-answered-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.vocab-answered-actions .vocab-next {
+  flex: 1 1 auto;
+}
+
+.vocab-ban {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--muted-text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vocab-ban:hover:not(:disabled) {
+    color: #dc2626;
+    border-color: rgba(239, 68, 68, 0.6);
+  }
+}
+
+.vocab-ban:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .repeat-card {
   gap: 16px;
 }
