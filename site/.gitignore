@@ -8,5 +8,6 @@ out/
 public/vocab/*.json
 
 # Repeat-sentence audio + manifest, produced by scripts/repeat_sentence_builder.py
+public/repeat-sentence/*.mp3
 public/repeat-sentence/*.wav
 public/repeat-sentence/problems.json

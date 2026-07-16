@@ -90,11 +90,13 @@ export default function RepeatSentence() {
       <div className="vocab-progress">
         <span className="vocab-progress-counter">{progressLabel}</span>
         <span className="vocab-progress-score">
-          {playState === "played"
-            ? "Played"
-            : playState === "playing"
-              ? "Playing…"
-              : "Ready"}
+          {current.voice
+            ? `${current.voice}${current.accent ? ` · ${current.accent}` : ""}`
+            : playState === "played"
+              ? "Played"
+              : playState === "playing"
+                ? "Playing…"
+                : "Ready"}
         </span>
       </div>
 
