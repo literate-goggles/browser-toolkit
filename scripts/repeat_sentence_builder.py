@@ -139,23 +139,81 @@ def elevenlabs_tts_mp3(
 # Sentence generation
 # ---------------------------------------------------------------------------
 
-def build_sentence_prompt(count: int) -> list[dict]:
+DIFFICULTY_SPECS = {
+    "easy": {
+        "length": "between 8 and 14 words",
+        "structure": "one clear main clause, one straightforward subordinate at most",
+        "vocab": "concrete, everyday academic vocabulary — nothing abstract or technical",
+        "topics": (
+            "campus admin (library hours, cafeteria, orientation, timetables, "
+            "shuttles, printing credits, scholarships, assignments, seminars, "
+            "tutorials, student services, health centre, bookstore)"
+        ),
+    },
+    "medium": {
+        "length": "between 12 and 18 words",
+        "structure": (
+            "one main clause plus one clear subordinate (relative, adverbial "
+            "or conditional); occasional coordination is fine"
+        ),
+        "vocab": (
+            "slightly elevated academic vocabulary — some abstract nouns and "
+            "content-area terms (methodology, hypothesis, sustainability, "
+            "collaboration, funding, curriculum), but avoid jargon"
+        ),
+        "topics": (
+            "broader academic life: research findings, policy debates in "
+            "education, environmental studies, history topics, "
+            "cross-disciplinary programmes, publication and peer review, "
+            "conferences, ethics, statistics, teaching methods"
+        ),
+    },
+    "hard": {
+        "length": "between 15 and 22 words",
+        "structure": (
+            "one main clause with two subordinates (relative + adverbial, "
+            "or conditional + concessive); passive voice permitted"
+        ),
+        "vocab": (
+            "advanced academic register with field-specific but recognisable "
+            "terms; nominalisation and abstract nouns are welcome"
+        ),
+        "topics": (
+            "specialist academic content: epistemology, econometrics, "
+            "molecular biology, jurisprudence, urban planning, cognitive "
+            "psychology, climate modelling — still domain-general enough for "
+            "a competent non-specialist listener"
+        ),
+    },
+}
+
+
+def build_sentence_prompt(count: int, difficulty: str, seen_sentences: list[str]) -> list[dict]:
+    spec = DIFFICULTY_SPECS[difficulty]
     system = (
         "You author practice items for the PTE Academic \"Repeat Sentence\" task. "
         "Return STRICT JSON only, no prose."
     )
+    avoid = ""
+    if seen_sentences:
+        joined = "\n".join(f"  - {s}" for s in seen_sentences)
+        avoid = (
+            f"\n\nAvoid generating sentences that overlap in meaning or "
+            f"phrasing with the following already-used items:\n{joined}\n"
+        )
     user = (
         f"Write {count} original single sentences suitable for the PTE Academic "
-        f"\"Repeat Sentence\" task. Requirements for each sentence:\n"
-        f"  - between 8 and 14 words\n"
-        f"  - academic register (university/campus/study context is ideal)\n"
-        f"  - one clear main clause, one straightforward subordinate at most\n"
-        f"  - concrete vocabulary, not abstract philosophy\n"
-        f"  - factual/instructional tone, no questions, no imperatives shouted\n"
+        f"\"Repeat Sentence\" task, at DIFFICULTY LEVEL: {difficulty}.\n\n"
+        f"Requirements for each sentence:\n"
+        f"  - length: {spec['length']}\n"
+        f"  - structure: {spec['structure']}\n"
+        f"  - vocabulary: {spec['vocab']}\n"
+        f"  - topics: {spec['topics']}\n"
+        f"  - factual/instructional tone; no questions; no shouted imperatives\n"
         f"  - no proper nouns, no ambiguous homophones, no digits\n"
-        f"  - vary the topic across the batch (library, lectures, research, "
-        f"student services, campus facilities, assignments, seminars, "
-        f"scholarships, orientation, timetables, etc.)\n\n"
+        f"  - vary the topic and structure across the batch — do not "
+        f"reuse the same subject twice in a row\n"
+        f"{avoid}\n"
         f'Return this exact JSON shape:\n'
         f'{{"items": ["Sentence one.", "Sentence two.", ...]}}\n\n'
         f"Exactly {count} sentences. No duplicates. No commentary."
@@ -166,21 +224,31 @@ def build_sentence_prompt(count: int) -> list[dict]:
     ]
 
 
-def generate_sentences(count: int, api_key: str, model: str) -> list[str]:
-    data = openrouter_chat(build_sentence_prompt(count), api_key, model)
+def generate_sentences(
+    count: int,
+    api_key: str,
+    model: str,
+    difficulty: str = "easy",
+    already_seen: list[str] | None = None,
+) -> list[str]:
+    already_seen = already_seen or []
+    seen_lower = {s.lower() for s in already_seen}
+    data = openrouter_chat(
+        build_sentence_prompt(count, difficulty, already_seen), api_key, model
+    )
     raw = data.get("items")
     if not isinstance(raw, list):
         raise RuntimeError(f"Unexpected sentence payload: {data!r}")
-    seen: set[str] = set()
+    seen_batch: set[str] = set()
     out: list[str] = []
     for entry in raw:
         s = str(entry).strip()
         if not s:
             continue
         key = s.lower()
-        if key in seen:
+        if key in seen_batch or key in seen_lower:
             continue
-        seen.add(key)
+        seen_batch.add(key)
         out.append(s)
     return out[:count]
 
@@ -189,17 +257,20 @@ def generate_sentences(count: int, api_key: str, model: str) -> list[str]:
 # Main
 # ---------------------------------------------------------------------------
 
-def load_existing_sentences(out_dir: Path) -> list[str]:
+def load_existing_manifest(out_dir: Path) -> dict:
     manifest_path = out_dir / "problems.json"
     if not manifest_path.exists():
         raise RuntimeError(
-            f"--reuse-sentences: {manifest_path} not found; run without the "
-            f"flag once to generate sentences first."
+            f"{manifest_path} not found; run once without --append/--reuse-sentences first."
         )
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def load_existing_sentences(out_dir: Path) -> list[str]:
+    data = load_existing_manifest(out_dir)
     items = data.get("items")
     if not isinstance(items, list) or not items:
-        raise RuntimeError("--reuse-sentences: problems.json has no items")
+        raise RuntimeError("problems.json has no items")
     return [str(it.get("text", "")).strip() for it in items if it.get("text")]
 
 
@@ -210,6 +281,51 @@ def clear_audio_files(out_dir: Path, extensions: tuple[str, ...]) -> int:
             path.unlink()
             removed += 1
     return removed
+
+
+def synth_items(
+    sentences: list[str],
+    start_id: int,
+    elevenlabs_key: str,
+    tts_model: str,
+    out_dir: Path,
+) -> list[dict]:
+    """TTS each sentence with a rotating voice; return manifest entries.
+
+    The rotation is keyed off the item's global id so numbering stays
+    consistent across append runs.
+    """
+    problems: list[dict] = []
+    total = len(sentences)
+    for offset, sentence in enumerate(sentences):
+        item_id = start_id + offset
+        voice_id, voice_name, accent = VOICE_ROTATION[
+            (item_id - 1) % len(VOICE_ROTATION)
+        ]
+        slug = f"sentence-{item_id:02d}.mp3"
+        preview = sentence[:60] + ("…" if len(sentence) > 60 else "")
+        print(
+            f"      {offset + 1:>2}/{total}  id={item_id:<3} {voice_name:<8} "
+            f"({accent:<10})  {preview}"
+        )
+        try:
+            mp3 = elevenlabs_tts_mp3(sentence, elevenlabs_key, voice_id, tts_model)
+        except Exception as exc:
+            print(f"      TTS failed for {slug}: {exc}", file=sys.stderr)
+            time.sleep(2)
+            continue
+        (out_dir / slug).write_bytes(mp3)
+        problems.append(
+            {
+                "id": item_id,
+                "text": sentence,
+                "audio": slug,
+                "voice": voice_name,
+                "voice_id": voice_id,
+                "accent": accent,
+            }
+        )
+    return problems
 
 
 def main() -> int:
@@ -223,6 +339,19 @@ def main() -> int:
         action="store_true",
         help="Read texts from an existing problems.json and only regenerate the audio.",
     )
+    parser.add_argument(
+        "--append",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Generate N additional items on top of the existing problems.json.",
+    )
+    parser.add_argument(
+        "--difficulty",
+        choices=sorted(DIFFICULTY_SPECS.keys()),
+        default="easy",
+        help="Sentence difficulty for new-generation batches (default: easy).",
+    )
     args = parser.parse_args()
 
     openrouter_key = os.environ.get("OPENROUTER_API_KEY")
@@ -234,6 +363,63 @@ def main() -> int:
     out_dir = (ROOT / args.out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # --------------------------------------------------------------
+    # APPEND MODE — generate N more items and merge with existing.
+    # --------------------------------------------------------------
+    if args.append > 0:
+        if not openrouter_key:
+            print("ERROR: OPENROUTER_API_KEY missing from .env", file=sys.stderr)
+            return 1
+        existing = load_existing_manifest(out_dir)
+        existing_items = existing.get("items") or []
+        existing_texts = [it.get("text", "") for it in existing_items]
+        next_id = max((it.get("id", 0) for it in existing_items), default=0) + 1
+        print(
+            f"[1/3] Appending {args.append} items (difficulty={args.difficulty}) "
+            f"starting at id={next_id}. Existing count: {len(existing_items)}."
+        )
+        new_sentences = generate_sentences(
+            args.append,
+            openrouter_key,
+            args.llm_model,
+            difficulty=args.difficulty,
+            already_seen=existing_texts,
+        )
+        print(f"      LLM returned {len(new_sentences)} fresh, non-duplicate sentences.")
+        if not new_sentences:
+            print("ERROR: no new sentences produced", file=sys.stderr)
+            return 1
+        print(f"[2/3] Voicing {len(new_sentences)} new items via ElevenLabs...")
+        new_items = synth_items(
+            new_sentences, next_id, elevenlabs_key, args.tts_model, out_dir
+        )
+        if not new_items:
+            print("ERROR: no audio was produced", file=sys.stderr)
+            return 1
+        merged = existing_items + new_items
+        manifest = existing.copy() if isinstance(existing, dict) else {}
+        meta = manifest.get("meta") or {}
+        meta["tts_provider"] = "elevenlabs"
+        meta["tts_model"] = args.tts_model
+        meta["llm_model"] = args.llm_model
+        meta["voices"] = [
+            {"id": v[0], "name": v[1], "accent": v[2]} for v in VOICE_ROTATION
+        ]
+        meta["generated_count"] = len(merged)
+        manifest["meta"] = meta
+        manifest["items"] = merged
+        (out_dir / "problems.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        print(
+            f"[3/3] Wrote {len(new_items)} new mp3s and updated problems.json "
+            f"({len(merged)} total items)."
+        )
+        return 0
+
+    # --------------------------------------------------------------
+    # FRESH / REUSE MODE — regenerate everything (destructive).
+    # --------------------------------------------------------------
     if args.reuse_sentences:
         print(f"[1/3] Reusing sentences from {out_dir.relative_to(ROOT)}/problems.json")
         sentences = load_existing_sentences(out_dir)
@@ -242,15 +428,21 @@ def main() -> int:
         if not openrouter_key:
             print("ERROR: OPENROUTER_API_KEY missing from .env", file=sys.stderr)
             return 1
-        print(f"[1/3] Generating {args.count} sentences via {args.llm_model}...")
-        sentences = generate_sentences(args.count, openrouter_key, args.llm_model)
+        print(
+            f"[1/3] Generating {args.count} sentences via {args.llm_model} "
+            f"(difficulty={args.difficulty})..."
+        )
+        sentences = generate_sentences(
+            args.count,
+            openrouter_key,
+            args.llm_model,
+            difficulty=args.difficulty,
+        )
         print(f"      Got {len(sentences)} unique sentences.")
     if not sentences:
         print("ERROR: no sentences available", file=sys.stderr)
         return 1
 
-    # Drop the previous audio artefacts so we don't end up with a mix of
-    # .wav (old provider) and .mp3 (ElevenLabs) files in the output dir.
     removed = clear_audio_files(out_dir, (".mp3", ".wav"))
     if removed:
         print(f"      Cleared {removed} stale audio file(s).")
@@ -259,30 +451,7 @@ def main() -> int:
         f"[2/3] Synthesising audio via ElevenLabs (model={args.tts_model}), "
         f"rotating {len(VOICE_ROTATION)} voices..."
     )
-    problems: list[dict] = []
-    for idx, sentence in enumerate(sentences, start=1):
-        voice_id, voice_name, accent = VOICE_ROTATION[(idx - 1) % len(VOICE_ROTATION)]
-        slug = f"sentence-{idx:02d}.mp3"
-        preview = sentence[:60] + ("…" if len(sentence) > 60 else "")
-        print(f"      {idx:>2}/{len(sentences)}  {voice_name:<8} ({accent:<10})  {preview}")
-        try:
-            mp3 = elevenlabs_tts_mp3(sentence, elevenlabs_key, voice_id, args.tts_model)
-        except Exception as exc:
-            print(f"      TTS failed for {slug}: {exc}", file=sys.stderr)
-            time.sleep(2)
-            continue
-        (out_dir / slug).write_bytes(mp3)
-        problems.append(
-            {
-                "id": idx,
-                "text": sentence,
-                "audio": slug,
-                "voice": voice_name,
-                "voice_id": voice_id,
-                "accent": accent,
-            }
-        )
-
+    problems = synth_items(sentences, 1, elevenlabs_key, args.tts_model, out_dir)
     if not problems:
         print("ERROR: no audio was produced", file=sys.stderr)
         return 1
