@@ -401,7 +401,8 @@ export default function VocabQuiz() {
           {session && (
             <div className="vocab-progress">
               <span className="vocab-progress-counter">
-                {Math.min(session.position + 1, session.total)} / {session.total}
+                {session.position + 1} /{" "}
+                {Math.max(activeItems.length, session.position + 1)}
               </span>
               <span className="vocab-progress-score">
                 Score: {session.correct}
