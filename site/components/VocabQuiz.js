@@ -5,38 +5,54 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const VOCAB_FILES = [
   { file: "vocab.json" },
   { file: "vocab-c1.json" },
+  { file: "vocab-c2.json" },
   { file: "vocab-pte.json" },
 ];
 
-const BAN_STORAGE_PREFIX = "dailychebakov:vocab:banned:";
+const BANS_API = "/api/vocab/bans";
 
-function bannedStorageKey(sourceId) {
-  return `${BAN_STORAGE_PREFIX}${sourceId}`;
-}
-
-function readBanned(sourceId) {
-  if (typeof window === "undefined") return new Set();
+async function fetchAllBans() {
   try {
-    const raw = window.localStorage.getItem(bannedStorageKey(sourceId));
-    if (!raw) return new Set();
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return new Set();
-    return new Set(arr.map((s) => String(s).toLowerCase()));
+    const r = await fetch(BANS_API, { cache: "no-store" });
+    if (!r.ok) return {};
+    const data = await r.json();
+    const out = {};
+    const bans = (data && data.bans) || {};
+    for (const [srcId, arr] of Object.entries(bans)) {
+      if (Array.isArray(arr)) {
+        out[srcId] = new Set(arr.map((s) => String(s).toLowerCase()));
+      }
+    }
+    return out;
   } catch (error) {
-    console.warn("[vocab] failed to read banned list", error);
-    return new Set();
+    console.warn("[vocab] failed to fetch bans", error);
+    return {};
   }
 }
 
-function writeBanned(sourceId, set) {
-  if (typeof window === "undefined") return;
+async function apiBanWord(sourceId, word) {
   try {
-    window.localStorage.setItem(
-      bannedStorageKey(sourceId),
-      JSON.stringify([...set]),
-    );
+    const r = await fetch(`${BANS_API}/${encodeURIComponent(sourceId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word }),
+    });
+    return r.ok;
   } catch (error) {
-    console.warn("[vocab] failed to persist banned list", error);
+    console.warn("[vocab] ban request failed", error);
+    return false;
+  }
+}
+
+async function apiClearBans(sourceId) {
+  try {
+    const r = await fetch(`${BANS_API}/${encodeURIComponent(sourceId)}`, {
+      method: "DELETE",
+    });
+    return r.ok;
+  } catch (error) {
+    console.warn("[vocab] clear bans failed", error);
+    return false;
   }
 }
 
@@ -159,14 +175,16 @@ export default function VocabQuiz() {
     [sources, sourceId],
   );
 
-  // Hydrate banned sets from localStorage once we know which sources exist.
+  // Fetch shared bans from the backend once (and whenever the source set changes).
   useEffect(() => {
-    if (!sources.length) return;
-    const next = {};
-    sources.forEach((src) => {
-      next[src.id] = readBanned(src.id);
+    let cancelled = false;
+    fetchAllBans().then((byId) => {
+      if (cancelled) return;
+      setBannedBySource(byId);
     });
-    setBannedBySource(next);
+    return () => {
+      cancelled = true;
+    };
   }, [sources]);
 
   const activeBanned = useMemo(() => {
@@ -185,24 +203,35 @@ export default function VocabQuiz() {
   const banCurrentWord = useCallback(() => {
     if (!currentQuiz || !activeSource) return;
     const word = String(currentQuiz.word).toLowerCase();
+    const srcId = activeSource.id;
+    // Optimistic UI: assume the API will accept, roll back on failure.
     setBannedBySource((prev) => {
-      const prevSet = prev[activeSource.id] || new Set();
+      const prevSet = prev[srcId] || new Set();
       if (prevSet.has(word)) return prev;
       const nextSet = new Set(prevSet);
       nextSet.add(word);
-      writeBanned(activeSource.id, nextSet);
-      return { ...prev, [activeSource.id]: nextSet };
+      return { ...prev, [srcId]: nextSet };
+    });
+    apiBanWord(srcId, word).then((ok) => {
+      if (ok) return;
+      setBannedBySource((prev) => {
+        const set = new Set(prev[srcId] || []);
+        set.delete(word);
+        return { ...prev, [srcId]: set };
+      });
     });
   }, [currentQuiz, activeSource]);
 
   const unbanAll = useCallback(() => {
     if (!activeSource) return;
-    setBannedBySource((prev) => {
-      const nextSet = new Set();
-      writeBanned(activeSource.id, nextSet);
-      return { ...prev, [activeSource.id]: nextSet };
+    const srcId = activeSource.id;
+    const previous = bannedBySource[srcId] || new Set();
+    setBannedBySource((prev) => ({ ...prev, [srcId]: new Set() }));
+    apiClearBans(srcId).then((ok) => {
+      if (ok) return;
+      setBannedBySource((prev) => ({ ...prev, [srcId]: previous }));
     });
-  }, [activeSource]);
+  }, [activeSource, bannedBySource]);
 
   const isCurrentBanned =
     !!currentQuiz &&

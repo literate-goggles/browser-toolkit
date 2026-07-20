@@ -15,7 +15,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SRC = path.resolve(ROOT, "..", "src", "js");
 const DST = path.resolve(ROOT, "public", "vocab");
 
-const SOURCES = ["vocab.js", "vocab-c1.js", "vocab-pte.js"];
+const SOURCES = ["vocab.js", "vocab-c1.js", "vocab-c2.js", "vocab-pte.js"];
 const MARKER_RE = /\/\*__LG_JSON__\*\/([\s\S]*?)\/\*__LG_END__\*\//;
 
 fs.mkdirSync(DST, { recursive: true });

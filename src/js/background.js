@@ -7,7 +7,7 @@ try {
   );
 }
 
-for (const script of ["vocab.js", "vocab-c1.js", "vocab-pte.js"]) {
+for (const script of ["vocab.js", "vocab-c1.js", "vocab-c2.js", "vocab-pte.js"]) {
   try {
     importScripts(script);
   } catch (error) {
