@@ -73,6 +73,101 @@ class DailyApiTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 502)
 
+    def test_writing_task_two_discards_table_data(self) -> None:
+        generated = {
+            "title": "Working from home",
+            "prompt": (
+                "Some people believe working from home benefits both employees and "
+                "employers. To what extent do you agree or disagree?"
+            ),
+            "questionType": "Opinion",
+            "tableTitle": "This should be removed",
+            "tableColumns": ["A", "B", "C"],
+            "tableRows": [["1", "2", "3"]] * 3,
+        }
+        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+            response = self.client.post(
+                "/api/ielts/writing/topic",
+                json={"mode": "task2", "recentTopics": []},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["tableRows"], [])
+
+    def test_writing_task_one_requires_rectangular_table(self) -> None:
+        generated = {
+            "title": "Transport use",
+            "prompt": (
+                "The table shows transport use. Summarise the main features and "
+                "make comparisons where relevant."
+            ),
+            "questionType": "Academic table report",
+            "tableTitle": "Journeys by mode (%)",
+            "tableColumns": ["Mode", "2000", "2025"],
+            "tableRows": [
+                ["Car", "50", "40"],
+                ["Bus", "20"],
+                ["Rail", "30", "40"],
+            ],
+        }
+        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+            response = self.client.post(
+                "/api/ielts/writing/topic",
+                json={"mode": "task1", "recentTopics": []},
+            )
+        self.assertEqual(response.status_code, 502)
+
+    def test_writing_evaluation_uses_server_word_count(self) -> None:
+        generated = {
+            "overallBand": 7.5,
+            "summary": "A clear and well-developed response.",
+            "criteria": {
+                "taskAchievementOrResponse": {
+                    "band": 8,
+                    "feedback": "The position is clear.",
+                },
+                "coherenceAndCohesion": {
+                    "band": 7,
+                    "feedback": "Paragraphing is logical.",
+                },
+                "lexicalResource": {
+                    "band": 7.5,
+                    "feedback": "Vocabulary is flexible.",
+                },
+                "grammaticalRangeAndAccuracy": {
+                    "band": 7,
+                    "feedback": "Complex structures are mostly accurate.",
+                },
+            },
+            "strengths": ["Clear position"],
+            "grammarCorrections": [],
+            "suggestions": ["Develop the second example further."],
+            "structureFeedback": "The introduction and body paragraphs are clear.",
+            "targetStatus": "on track",
+            "targetFocus": "Improve precision in supporting examples.",
+            "wordCount": 999,
+        }
+        topic = {
+            "id": "test-topic",
+            "mode": "task2",
+            "title": "Public transport",
+            "prompt": "Should cities make public transport free? Discuss.",
+            "questionType": "Opinion",
+            "tableTitle": "",
+            "tableColumns": [],
+            "tableRows": [],
+        }
+        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+            response = self.client.post(
+                "/api/ielts/writing/evaluate",
+                json={
+                    "topic": topic,
+                    "essay": "Public transport should be free for everyone.",
+                    "elapsedSeconds": 300,
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["wordCount"], 7)
+
     def test_delivery_stats_use_transcript_and_word_timings(self) -> None:
         stats = main._calculate_delivery_stats(
             {
