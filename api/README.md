@@ -15,6 +15,8 @@ vocab bans API and runs the server-only IELTS speaking pipeline.
 | `POST` | `/api/ielts/topic` | Generate a 25-second or two-minute topic through OpenRouter |
 | `POST` | `/api/ielts/transcribe` | Transcribe a raw browser audio upload through ElevenLabs Scribe |
 | `POST` | `/api/ielts/evaluate` | Evaluate a transcript against the band-7.5 target through OpenRouter |
+| `POST` | `/api/ielts/writing/topic` | Generate Academic Task 1 tables or Task 2 essay prompts |
+| `POST` | `/api/ielts/writing/evaluate` | Evaluate writing against four IELTS criteria and the 7.5 target |
 
 The browser calls transcription and evaluation separately so it can show the
 real pipeline stage and retry evaluation without uploading audio again.

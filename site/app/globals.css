@@ -1258,3 +1258,285 @@ button {
     animation: none;
   }
 }
+
+/* IELTS writing */
+.writing-main {
+  max-width: 900px;
+}
+
+.writing-workspace {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.writing-task-card,
+.writing-editor-card {
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.writing-task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+}
+
+.writing-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.writing-prompt-heading span {
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.writing-prompt-heading h2 {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+  margin-top: 3px;
+}
+
+.writing-prompt > p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.writing-table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.writing-table-wrap > strong {
+  display: block;
+  padding: 11px 14px;
+  background: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.writing-table-scroll {
+  overflow-x: auto;
+}
+
+.writing-table-wrap table {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.writing-table-wrap th,
+.writing-table-wrap td {
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 9px 11px;
+  text-align: right;
+}
+
+.writing-table-wrap th:last-child,
+.writing-table-wrap td:last-child {
+  border-right: none;
+}
+
+.writing-table-wrap tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.writing-table-wrap thead th {
+  background: rgba(37, 99, 235, 0.06);
+  color: var(--text-color);
+  font-weight: 700;
+}
+
+.writing-table-wrap thead th:first-child,
+.writing-table-wrap tbody th {
+  text-align: left;
+}
+
+.writing-table-wrap tbody th {
+  background: rgba(245, 247, 251, 0.65);
+  font-weight: 650;
+}
+
+.writing-editor-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.writing-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.writing-clock,
+.writing-word-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--background-color);
+  padding: 8px 11px;
+}
+
+.writing-clock span,
+.writing-word-count span {
+  color: var(--muted-text);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.writing-clock strong,
+.writing-word-count strong {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.writing-clock[data-warning="true"] {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(254, 242, 242, 0.8);
+  color: #b91c1c;
+}
+
+.writing-word-count[data-reached="true"] {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(240, 253, 244, 0.8);
+  color: #15803d;
+}
+
+.writing-editor-card > label {
+  color: var(--muted-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.writing-editor-card textarea {
+  width: 100%;
+  min-height: 430px;
+  resize: vertical;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-color);
+  padding: 18px;
+  font:
+    15px/1.7 Georgia,
+    "Times New Roman",
+    serif;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.writing-editor-card textarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.writing-editor-card textarea:disabled {
+  background: var(--background-color);
+  opacity: 1;
+}
+
+.writing-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.writing-editor-actions > span {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+
+.writing-evaluating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: var(--muted-text);
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.writing-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: writing-spin 0.8s linear infinite;
+}
+
+@keyframes writing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.writing-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.writing-criteria-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.writing-response-copy {
+  white-space: pre-wrap;
+  color: var(--text-color) !important;
+  font:
+    14px/1.7 Georgia,
+    "Times New Roman",
+    serif !important;
+}
+
+@media (max-width: 620px) {
+  .writing-editor-toolbar,
+  .writing-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .writing-clock,
+  .writing-word-count {
+    justify-content: space-between;
+  }
+
+  .writing-editor-card textarea {
+    min-height: 360px;
+    padding: 14px;
+  }
+
+  .writing-stats,
+  .writing-criteria-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .writing-spinner {
+    animation: none;
+  }
+}

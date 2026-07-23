@@ -33,6 +33,13 @@ export default function HomePage() {
               7.5.
             </span>
           </Link>
+          <Link className="tool-card" href="/ielts-writing/">
+            <span className="tool-title">IELTS writing</span>
+            <span className="tool-description">
+              Timed Academic Task 1 and Task 2 practice with generated
+              questions, live word counting and feedback aimed at band 7.5.
+            </span>
+          </Link>
         </div>
       </main>
     </div>
