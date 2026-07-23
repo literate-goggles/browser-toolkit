@@ -2,7 +2,8 @@ import "./globals.css";
 
 export const metadata = {
   title: "daily.chebakov.me",
-  description: "Personal study tools — English vocab quizzes and more.",
+  description:
+    "Personal study tools for vocabulary, listening and IELTS speaking.",
 };
 
 export default function RootLayout({ children }) {

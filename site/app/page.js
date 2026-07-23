@@ -14,8 +14,8 @@ export default function HomePage() {
             <span className="tool-title">English vocab quiz</span>
             <span className="tool-description">
               English → Russian flashcard quizzes with pronunciation, sample
-              sentences and a whole-list study session. Multiple sources
-              (books, CEFR lists, exam banks).
+              sentences and a whole-list study session. Multiple sources (books,
+              CEFR lists, exam banks).
             </span>
           </Link>
           <Link className="tool-card" href="/repeat-sentence/">
@@ -23,6 +23,14 @@ export default function HomePage() {
             <span className="tool-description">
               PTE-style listening practice — an audio plays once, you try to
               repeat it back, then reveal the text to check.
+            </span>
+          </Link>
+          <Link className="tool-card" href="/ielts-speaking/">
+            <span className="tool-title">IELTS speaking</span>
+            <span className="tool-description">
+              Timed 25-second and two-minute speaking exercises with fresh
+              topics, voice recording, transcription and feedback aimed at band
+              7.5.
             </span>
           </Link>
         </div>

@@ -1,34 +1,71 @@
-# daily.chebakov.me · vocab bans API
+# daily.chebakov.me · FastAPI backend
 
-Tiny zero-dependency Node http server that stores per-source banned word lists
-so the "Ban this word" feature on the vocab quiz syncs across browsers/devices.
+One Python service backs the static Next.js site. It keeps the existing shared
+vocab bans API and runs the server-only IELTS speaking pipeline.
 
 ## Endpoints
 
-Mounted by nginx under `/api/vocab/bans` on daily.chebakov.me.
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Service and provider-key readiness |
+| `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
+| `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
+| `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
+| `DELETE` | `/api/vocab/bans/<sourceId>/<word>` | Unban one word |
+| `POST` | `/api/ielts/topic` | Generate a 25-second or two-minute topic through OpenRouter |
+| `POST` | `/api/ielts/transcribe` | Transcribe a raw browser audio upload through ElevenLabs Scribe |
+| `POST` | `/api/ielts/evaluate` | Evaluate a transcript against the band-7.5 target through OpenRouter |
 
-| Method | Path                                     | Body            | Returns                              |
-| ------ | ---------------------------------------- | --------------- | ------------------------------------ |
-| GET    | `/api/vocab/bans`                        |                 | `{ bans: { <sourceId>: [word, …] }}` |
-| POST   | `/api/vocab/bans/<sourceId>`             | `{ "word": … }` | `{ ok, banned }`                     |
-| DELETE | `/api/vocab/bans/<sourceId>`             |                 | `{ ok }` (clears source)             |
-| DELETE | `/api/vocab/bans/<sourceId>/<word>`      |                 | `{ ok, banned }` (single word)       |
+The browser calls transcription and evaluation separately so it can show the
+real pipeline stage and retry evaluation without uploading audio again.
+Recordings are not persisted by the backend.
+Provider-backed routes have a small per-IP, in-memory hourly limit to put a
+cost ceiling around this public personal site.
 
-## Runtime
+## Setup
 
-Listens on `127.0.0.1:3011` by default. Data file at
-`~/Projects/browser-toolkit/api/bans.json`.
-
-Managed by systemd — unit at `~/Projects/dotfiles/systemd/daily-vocab-bans.service`.
+From the repository root:
 
 ```sh
+python3 -m venv .venv
+.venv/bin/pip install -r scripts/requirements.txt -r api/requirements.txt
+```
+
+The repository-root `.env` is loaded by both the app and systemd unit:
+
+```dotenv
+ELEVENLABS_API_KEY=...
+OPENROUTER_API_KEY=...
+
+# Optional overrides
+OPENROUTER_MODEL=google/gemini-2.5-flash
+ELEVENLABS_STT_MODEL=scribe_v2
+```
+
+On the current server, the unit sets `CREDENTIALS_ENV_FILE` to the debate
+project's existing `.env`. FastAPI selectively reads only
+`ELEVENLABS_API_KEY` and `OPENROUTER_API_KEY` from it when this repository has
+no local values; unrelated credentials are not imported into the process.
+
+For local development:
+
+```sh
+cd api
+../.venv/bin/uvicorn main:app --host 127.0.0.1 --port 3011 --reload
+```
+
+## Production
+
+The systemd unit remains named `daily-vocab-bans.service` for a no-downtime
+migration from the former Node service, but now launches FastAPI:
+
+```sh
+cd ~/Projects/dotfiles
+sudo make services
+sudo make nginx
+
 sudo systemctl status daily-vocab-bans
-sudo systemctl restart daily-vocab-bans
 sudo journalctl -u daily-vocab-bans -f
 ```
 
-## Deploy from scratch
-
-```sh
-cd ~/Projects/dotfiles && make services
-```
+Runtime bans remain in `api/bans.json` and are excluded from git.
