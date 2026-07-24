@@ -8,12 +8,13 @@ import json
 import os
 import re
 import threading
+import unicodedata
 from collections.abc import Awaitable, Callable
 from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
@@ -74,13 +75,19 @@ class ResearchItem(StrictModel):
     url: str = Field(min_length=8, max_length=500)
 
 
-class CarItem(StrictModel):
+class GeneratedCarItem(StrictModel):
     name: str = Field(min_length=2, max_length=120)
     years: str = Field(min_length=2, max_length=80)
     country: str = Field(min_length=2, max_length=80)
     category: str = Field(min_length=2, max_length=100)
     notes: list[str] = Field(min_length=2, max_length=3)
     whyItMatters: str = Field(min_length=20, max_length=700)
+
+
+class CarItem(GeneratedCarItem):
+    imageUrl: str = Field(default="", max_length=800)
+    imageSourceUrl: str = Field(default="", max_length=500)
+    imageAlt: str = Field(default="", max_length=180)
 
 
 class PoemItem(StrictModel):
@@ -93,7 +100,7 @@ class PoemItem(StrictModel):
 class GeneratedDailyContent(StrictModel):
     onThisDay: list[OnThisDayItem] = Field(min_length=4, max_length=6)
     research: list[ResearchItem] = Field(min_length=2, max_length=4)
-    cars: list[CarItem] = Field(min_length=1, max_length=3)
+    cars: list[GeneratedCarItem] = Field(min_length=1, max_length=3)
     poem: PoemItem
 
 
@@ -227,6 +234,23 @@ def _history_key(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip().casefold()
 
 
+def _match_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    without_marks = "".join(
+        character for character in normalized if not unicodedata.combining(character)
+    )
+    return re.sub(r"[^a-z0-9]+", " ", without_marks.casefold()).strip()
+
+
+def _safe_image_url(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    parsed = urlparse(value)
+    if parsed.scheme != "https" or parsed.hostname != "upload.wikimedia.org":
+        return ""
+    return value
+
+
 class DailyDigestService:
     def __init__(
         self,
@@ -339,6 +363,17 @@ class DailyDigestService:
         state["current"] = digest.model_dump(mode="json")
         self._save_state(state)
 
+    async def _ensure_digest_car_images(
+        self, state: dict[str, Any], digest: DailyDigest
+    ) -> DailyDigest:
+        if all(car.imageUrl for car in digest.cars):
+            return digest
+        enriched = await self._enrich_cars(digest.cars)
+        updated = digest.model_copy(update={"cars": enriched})
+        state["current"] = updated.model_dump(mode="json")
+        self._save_state(state)
+        return updated
+
     async def _fetch_wikipedia(
         self, client: httpx.AsyncClient, language: Literal["en", "ru"], target: date
     ) -> tuple[str, str]:
@@ -425,6 +460,117 @@ class DailyDigestService:
         if len(text) < 200:
             raise ValueError(f"{url} returned too little readable text")
         return text[:SOURCE_TEXT_LIMIT], url
+
+    async def _fetch_car_image(
+        self, client: httpx.AsyncClient, car_name: str
+    ) -> tuple[str, str]:
+        normalized_name = _match_text(car_name)
+        name_tokens = set(normalized_name.split())
+        for search_query in (car_name, f"{car_name} automobile"):
+            response = await client.get(
+                "https://en.wikipedia.org/w/api.php",
+                params={
+                    "action": "query",
+                    "generator": "search",
+                    "gsrsearch": search_query,
+                    "gsrnamespace": "0",
+                    "gsrlimit": "5",
+                    "prop": "pageimages|info|description",
+                    "piprop": "thumbnail",
+                    "pithumbsize": "1200",
+                    "pilicense": "free",
+                    "inprop": "url",
+                    "format": "json",
+                    "formatversion": "2",
+                },
+            )
+            response.raise_for_status()
+            pages = (response.json().get("query") or {}).get("pages") or []
+            candidates: list[tuple[int, str, str]] = []
+            for page in pages:
+                if not isinstance(page, dict):
+                    continue
+                thumbnail = page.get("thumbnail")
+                image_url = _safe_image_url(
+                    thumbnail.get("source") if isinstance(thumbnail, dict) else ""
+                )
+                title = str(page.get("title") or "").strip()
+                if not image_url or not title:
+                    continue
+                normalized_title = _match_text(title)
+                title_tokens = set(normalized_title.split())
+                score = len(name_tokens & title_tokens) * 10
+                if normalized_title == normalized_name:
+                    score += 100
+                elif name_tokens and name_tokens.issubset(title_tokens):
+                    score += 50
+                description = _match_text(str(page.get("description") or ""))
+                if any(
+                    term in description
+                    for term in ("automobile", "car", "vehicle", "motor")
+                ):
+                    score += 5
+                source_url = str(page.get("fullurl") or "").strip()
+                if (
+                    urlparse(source_url).scheme != "https"
+                    or urlparse(source_url).hostname != "en.wikipedia.org"
+                ):
+                    source_url = (
+                        "https://en.wikipedia.org/wiki/"
+                        + quote(title.replace(" ", "_"))
+                    )
+                candidates.append((score, image_url, source_url))
+            if candidates:
+                _, image_url, source_url = max(candidates, key=lambda item: item[0])
+                return image_url, source_url
+        raise ValueError(f"no free Wikipedia page image found for {car_name}")
+
+    async def _enrich_cars(
+        self, cars: list[GeneratedCarItem | CarItem]
+    ) -> list[CarItem]:
+        timeout = httpx.Timeout(25.0)
+        headers = {"User-Agent": USER_AGENT}
+        async with httpx.AsyncClient(
+            timeout=timeout, headers=headers, follow_redirects=True
+        ) as client:
+            async def lookup(
+                car: GeneratedCarItem | CarItem,
+            ) -> tuple[str, str]:
+                if isinstance(car, CarItem) and car.imageUrl:
+                    return car.imageUrl, car.imageSourceUrl
+                return await self._fetch_car_image(client, car.name)
+
+            lookups = await asyncio.gather(
+                *(lookup(car) for car in cars),
+                return_exceptions=True,
+            )
+
+        enriched: list[CarItem] = []
+        for car, lookup in zip(cars, lookups):
+            base = car.model_dump(
+                exclude={"imageUrl", "imageSourceUrl", "imageAlt"}
+            )
+            if isinstance(lookup, BaseException):
+                print(f"[daily] car image {car.name} failed: {lookup}", flush=True)
+                enriched.append(
+                    CarItem(
+                        **base,
+                        imageUrl=getattr(car, "imageUrl", ""),
+                        imageSourceUrl=getattr(car, "imageSourceUrl", ""),
+                        imageAlt=getattr(car, "imageAlt", "") or f"{car.name} car",
+                    )
+                )
+                continue
+            image_url, source_url = lookup
+            enriched.append(
+                CarItem(
+                    **base,
+                    imageUrl=image_url,
+                    imageSourceUrl=source_url,
+                    imageAlt=f"{car.name} car",
+                )
+            )
+        return enriched
 
     async def _fetch_sources(
         self, target: date
@@ -593,6 +739,7 @@ class DailyDigestService:
             evidence=evidence,
             history=state["history"],
         )
+        cars = await self._enrich_cars(content.cars)
         generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         display_date = target.strftime("%A, %B %d, %Y").replace(" 0", " ")
         digest = DailyDigest(
@@ -601,7 +748,8 @@ class DailyDigestService:
             generatedAt=generated_at,
             timezone=self.timezone_name,
             sources=statuses,
-            **content.model_dump(),
+            **content.model_dump(exclude={"cars"}),
+            cars=cars,
         )
         self._persist_digest(state, digest)
         return digest
@@ -610,13 +758,18 @@ class DailyDigestService:
         target = self._local_today()
         state = self._load_state()
         current = self._current_digest(state)
-        if current and current.date == target.isoformat():
+        if (
+            current
+            and current.date == target.isoformat()
+            and all(car.imageUrl for car in current.cars)
+        ):
             return DailyResponse(digest=current)
 
         async with self._refresh_lock:
             state = self._load_state()
             current = self._current_digest(state)
             if current and current.date == target.isoformat():
+                current = await self._ensure_digest_car_images(state, current)
                 return DailyResponse(digest=current)
             try:
                 return DailyResponse(digest=await self._refresh(state, target))

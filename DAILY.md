@@ -45,8 +45,9 @@ repeating previously covered research.
 ## Cars
 
 Show no more than three sampled historical or modern car models. For each one,
-include its era, defining characteristics, and why it matters in automotive
-history or the modern market. Remember previously shown models.
+include a representative image, its era, defining characteristics, and why it
+matters in automotive history or the modern market. Remember previously shown
+models.
 
 ## Russian poetry
 

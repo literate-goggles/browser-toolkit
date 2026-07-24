@@ -31,10 +31,12 @@ cost ceiling around this public personal site.
 
 The daily digest fetches both Wikipedia date pages, Hugging Face Daily Papers,
 the Hugging Face blog, and alphaXiv. GPT-5.6 Sol selects and writes
-self-contained summaries. The result and persistent non-repetition history are
-stored in `api/daily.json`. A background scheduler refreshes after midnight in
-`DAILY_TIMEZONE`; the first request after a date change is a synchronous
-fallback if the scheduled refresh has not finished.
+self-contained summaries. Free car images are resolved separately through
+Wikipedia's PageImages API, so the model never supplies image URLs. The result
+and persistent non-repetition history are stored in `api/daily.json`. A
+background scheduler refreshes after midnight in `DAILY_TIMEZONE`; the first
+request after a date change is a synchronous fallback if the scheduled refresh
+has not finished.
 
 ## Setup
 

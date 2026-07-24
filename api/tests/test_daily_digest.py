@@ -7,7 +7,10 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock
 
+import httpx
+
 from api.daily_digest import (
+    CarItem,
     DailyDigest,
     DailyDigestService,
     SourceStatus,
@@ -156,6 +159,25 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+        async def enrich_cars(cars):
+            return [
+                CarItem(
+                    **car.model_dump(),
+                    imageUrl=(
+                        "https://upload.wikimedia.org/wikipedia/commons/"
+                        f"{car.name.replace(' ', '_')}.jpg"
+                    ),
+                    imageSourceUrl=(
+                        "https://en.wikipedia.org/wiki/"
+                        f"{car.name.replace(' ', '_')}"
+                    ),
+                    imageAlt=f"{car.name} car",
+                )
+                for car in cars
+            ]
+
+        self.service._enrich_cars = AsyncMock(side_effect=enrich_cars)
+
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
 
@@ -171,6 +193,7 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(persisted["current"]["date"], "2026-07-24")
         self.assertIn("paper-001", persisted["history"]["research"])
         self.assertIn("citroen ds", persisted["history"]["cars"])
+        self.assertTrue(persisted["current"]["cars"][0]["imageUrl"])
 
     async def test_retries_when_model_repeats_persistent_history(self) -> None:
         self.data_file.write_text(
@@ -223,6 +246,46 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
     def test_normalizes_curly_quotes_and_apostrophes(self) -> None:
         normalized = _plain_quotes({"text": "\u201cToday\u2019s\u201d"})
         self.assertEqual(normalized["text"], '"Today\'s"')
+
+    async def test_fetches_a_free_wikipedia_car_image(self) -> None:
+        client = AsyncMock()
+        client.get.return_value = httpx.Response(
+            200,
+            request=httpx.Request(
+                "GET", "https://en.wikipedia.org/w/api.php"
+            ),
+            json={
+                "query": {
+                    "pages": [
+                        {
+                            "title": "Citroën DS",
+                            "description": "French executive automobile",
+                            "fullurl": "https://en.wikipedia.org/wiki/Citro%C3%ABn_DS",
+                            "thumbnail": {
+                                "source": (
+                                    "https://upload.wikimedia.org/wikipedia/"
+                                    "commons/thumb/example.jpg"
+                                )
+                            },
+                        }
+                    ]
+                }
+            },
+        )
+
+        image_url, source_url = await DailyDigestService._fetch_car_image(
+            self.service, client, "Citroen DS"
+        )
+
+        self.assertEqual(
+            image_url,
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/example.jpg",
+        )
+        self.assertEqual(
+            source_url, "https://en.wikipedia.org/wiki/Citro%C3%ABn_DS"
+        )
+        request_params = client.get.await_args.kwargs["params"]
+        self.assertEqual(request_params["pilicense"], "free")
 
 
 if __name__ == "__main__":

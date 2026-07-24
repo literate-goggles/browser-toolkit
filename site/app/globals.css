@@ -2378,6 +2378,45 @@ button {
     linear-gradient(180deg, rgba(239, 234, 220, 0.5), transparent 45%), #fbfaf5;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+}
+
+.daily-car-image {
+  position: relative;
+  margin: -22px -22px 20px;
+  overflow: hidden;
+  background: #d9ded7;
+}
+
+.daily-car-image a {
+  display: block;
+  aspect-ratio: 16 / 10;
+}
+
+.daily-car-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 300ms ease;
+}
+
+.daily-car-image a:hover img,
+.daily-car-image a:focus-visible img {
+  transform: scale(1.025);
+}
+
+.daily-car-image figcaption {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: rgba(13, 36, 38, 0.82);
+  color: #f8f4e9;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .daily-car-meta {
@@ -2678,6 +2717,10 @@ button {
   }
 
   .daily-practice-card {
+    transition: none;
+  }
+
+  .daily-car-image img {
     transition: none;
   }
 }

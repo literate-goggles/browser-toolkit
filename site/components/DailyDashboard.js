@@ -282,6 +282,24 @@ export default function DailyDashboard() {
             <div className="daily-car-grid">
               {digest.cars.map((car, index) => (
                 <article className="daily-car-card" key={car.name}>
+                  {car.imageUrl && (
+                    <figure className="daily-car-image">
+                      <a
+                        href={car.imageSourceUrl || car.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open the image source for ${car.name}`}
+                      >
+                        <img
+                          src={car.imageUrl}
+                          alt={car.imageAlt || `${car.name} car`}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </a>
+                      <figcaption>Image via Wikipedia</figcaption>
+                    </figure>
+                  )}
                   <span className="daily-car-number">
                     {String(index + 1).padStart(2, "0")}
                   </span>
