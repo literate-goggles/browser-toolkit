@@ -51,7 +51,10 @@ BANS_DATA_FILE = Path(
 ).expanduser()
 OPENROUTER_API_KEY = _configuration("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = _configuration(
-    "OPENROUTER_MODEL", "google/gemini-2.5-flash"
+    "OPENROUTER_MODEL", "~google/gemini-pro-latest"
+)
+OPENROUTER_REASONING_EFFORT = _configuration(
+    "OPENROUTER_REASONING_EFFORT", "low"
 )
 ELEVENLABS_API_KEY = _configuration("ELEVENLABS_API_KEY")
 ELEVENLABS_STT_MODEL = _configuration("ELEVENLABS_STT_MODEL", "scribe_v2")
@@ -371,6 +374,10 @@ async def _openrouter_json(
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        "reasoning": {
+            "effort": OPENROUTER_REASONING_EFFORT,
+            "exclude": True,
+        },
         "provider": {"require_parameters": True},
         "response_format": {
             "type": "json_schema",
@@ -774,7 +781,7 @@ async def generate_topic(request: Request, payload: TopicRequest) -> SpeakingTop
         schema_name="ielts_speaking_topic",
         schema=_topic_schema(),
         temperature=0.9,
-        max_tokens=350,
+        max_tokens=900,
     )
     if is_short:
         result["bulletPoints"] = []
@@ -900,7 +907,7 @@ async def evaluate_speech(
         schema_name="ielts_speaking_evaluation",
         schema=_evaluation_schema(),
         temperature=0.25,
-        max_tokens=1_300,
+        max_tokens=2_600,
     )
     try:
         return EvaluationResult.model_validate(result)
@@ -950,7 +957,7 @@ async def generate_writing_topic(
         schema_name="ielts_writing_topic",
         schema=_writing_topic_schema(),
         temperature=0.85,
-        max_tokens=900,
+        max_tokens=1_400,
     )
     if not is_task_one:
         result.update({"tableTitle": "", "tableColumns": [], "tableRows": []})
@@ -1026,7 +1033,7 @@ async def evaluate_writing(
         schema_name="ielts_writing_evaluation",
         schema=_writing_evaluation_schema(),
         temperature=0.2,
-        max_tokens=1_700,
+        max_tokens=3_000,
     )
     result["wordCount"] = word_count
     try:

@@ -40,7 +40,8 @@ ELEVENLABS_API_KEY=...
 OPENROUTER_API_KEY=...
 
 # Optional overrides
-OPENROUTER_MODEL=google/gemini-2.5-flash
+OPENROUTER_MODEL=~google/gemini-pro-latest
+OPENROUTER_REASONING_EFFORT=low
 ELEVENLABS_STT_MODEL=scribe_v2
 ```
 
