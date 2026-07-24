@@ -10,6 +10,7 @@ IELTS pipelines.
 | --- | --- | --- |
 | `GET` | `/api/health` | Service and provider-key readiness |
 | `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
+| `GET` | `/api/daily/math` | Return 30 daily source-grounded problems and solutions |
 | `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
 | `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
@@ -37,6 +38,25 @@ and persistent non-repetition history are stored in `api/daily.json`. A
 background scheduler refreshes after midnight in `DAILY_TIMEZONE`; the first
 request after a date change is a synchronous fallback if the scheduled refresh
 has not finished.
+
+The math studio reads the ten-source catalog in `api/math_sources.json`.
+Complete author-hosted books and readers are downloaded and converted into
+local text indexes before generation. The commercial Machine Learning System
+Design book is not copied: its publisher page and the authors' complete
+MIT-licensed companion repository are used instead. Refresh the local source
+library with:
+
+```sh
+cd api
+../.venv/bin/python scripts/download_math_sources.py
+```
+
+GPT-5.6 Sol uses high reasoning effort to prepare exactly three original
+problems per subject: warm-up, core, and stretch. Each includes a hint, a
+worked solution, and a modified follow-up with its own solution. The saved
+daily set and non-repetition keys live in `api/math_daily.json`. If a midnight
+refresh is still running, the API serves the previous set until the new one is
+ready.
 
 ## Setup
 
@@ -85,5 +105,6 @@ sudo systemctl status daily-vocab-bans
 sudo journalctl -u daily-vocab-bans -f
 ```
 
-Runtime bans remain in `api/bans.json`; the daily cache and history live in
-`api/daily.json`. Both files are excluded from git.
+Runtime bans remain in `api/bans.json`; the daily digest lives in
+`api/daily.json`; and the math set lives in `api/math_daily.json`. All three
+runtime files are excluded from git.

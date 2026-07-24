@@ -13,6 +13,8 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
 - bilingual "on this day" history from English and Russian Wikipedia;
 - daily ML research selected from Hugging Face Papers, the Hugging Face blog,
   and alphaXiv;
+- 30 daily source-grounded mathematics and ML problems, with worked solutions
+  and transfer exercises;
 - short introductions to important car models;
 - public-domain Russian poetry for memory practice.
 
@@ -20,7 +22,9 @@ FastAPI refreshes the digest at midnight in the configured timezone, with a
 first-visit fallback after a date change. The generated digest and selection
 history persist in `api/daily.json`, preventing research, cars, and poetry from
 repeating across restarts. All LLM generation uses OpenAI GPT-5.6 Sol through
-the Responses API; provider credentials remain server-side.
+the Responses API; the problem studio uses high reasoning effort and keeps its
+own non-repetition history in `api/math_daily.json`. Provider credentials
+remain server-side.
 
 See [api/README.md](./api/README.md) for local and production setup.
 

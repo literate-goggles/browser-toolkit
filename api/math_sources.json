@@ -1,0 +1,249 @@
+[
+  {
+    "id": "mathematical-analysis",
+    "title": "Mathematical analysis",
+    "language": "en",
+    "sourceTitle": "Measure, Integration & Real Analysis",
+    "authors": "Sheldon Axler",
+    "sourceUrl": "https://measure.axler.net/",
+    "availability": "Open-access full book",
+    "license": "CC BY-NC 4.0",
+    "files": [
+      {
+        "url": "https://measure.axler.net/MIRA.pdf",
+        "filename": "measure-integration-real-analysis.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "limits and convergence",
+      "Riemann and Lebesgue integration",
+      "metric and normed spaces",
+      "inequalities",
+      "measure and probability"
+    ]
+  },
+  {
+    "id": "linear-algebra",
+    "title": "Linear algebra",
+    "language": "en",
+    "sourceTitle": "Linear Algebra",
+    "authors": "David Cherney, Tom Denton, Rohit Thomas, Andrew Waldron",
+    "sourceUrl": "https://www.math.ucdavis.edu/~linear/",
+    "availability": "Open full book",
+    "license": "CC BY-NC-SA 3.0",
+    "files": [
+      {
+        "url": "https://www.math.ucdavis.edu/~linear/linear-guest.pdf",
+        "filename": "uc-davis-linear-algebra.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "systems of linear equations",
+      "linear transformations",
+      "bases and dimension",
+      "eigenvalues and diagonalisation",
+      "inner products"
+    ]
+  },
+  {
+    "id": "leningrad-math-circles",
+    "title": "Ленинградские математические кружки",
+    "language": "ru",
+    "sourceTitle": "Ленинградские математические кружки",
+    "authors": "С. А. Генкин, И. В. Итенберг, Д. В. Фомин",
+    "sourceUrl": "https://www.mathedu.ru/text/genkin_i_dr_leningradskie_matematicheskie_kruzhki_1994/",
+    "availability": "Full 1994 edition in the public Mathedu educational reader",
+    "license": "Public educational-library reader; copyright remains with the authors and publisher",
+    "files": [
+      {
+        "url": "https://www.mathedu.ru/text/htmldoc/?docurl=genkin_i_dr_leningradskie_matematicheskie_kruzhki_1994&query=&pf=a&ps=2&lm=1x1&theme=light",
+        "filename": "leningrad-circles-full-reader.html",
+        "kind": "html",
+        "verifyTls": false
+      }
+    ],
+    "topics": [
+      "чётность и инварианты",
+      "комбинаторика",
+      "делимость и остатки",
+      "принцип Дирихле",
+      "графы и игры"
+    ]
+  },
+  {
+    "id": "deep-learning-foundations",
+    "title": "Deep Learning: Foundations and Concepts",
+    "language": "en",
+    "sourceTitle": "Deep Learning: Foundations and Concepts",
+    "authors": "Christopher M. Bishop, Hugh Bishop",
+    "sourceUrl": "https://issuu.com/cmb321/docs/deep_learning_ebook",
+    "availability": "Complete 656-page author-provided online reader; PDF is commercial",
+    "license": "Free-to-use online version",
+    "files": [
+      {
+        "url": "https://issuu.com/cmb321/docs/deep_learning_ebook/{page}",
+        "filename": "bishop-deep-learning-reader.json",
+        "kind": "issuu_text",
+        "pageCount": 656
+      }
+    ],
+    "topics": [
+      "probability for deep learning",
+      "automatic differentiation and optimisation",
+      "convolutional and recurrent networks",
+      "transformers and attention",
+      "generative models"
+    ]
+  },
+  {
+    "id": "elements-statistical-learning",
+    "title": "Elements of Statistical Learning",
+    "language": "en",
+    "sourceTitle": "The Elements of Statistical Learning",
+    "authors": "Trevor Hastie, Robert Tibshirani, Jerome Friedman",
+    "sourceUrl": "https://hastie.su.domains/ElemStatLearn/",
+    "availability": "Author-hosted full book",
+    "license": "Copyright Springer; web distribution permitted by the publisher",
+    "files": [
+      {
+        "url": "https://drive.google.com/uc?export=download&id=1--Wo5Hcl2y_v3DL-tGgcJHRPdtjiVYjS",
+        "filename": "elements-statistical-learning.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "bias-variance trade-off",
+      "linear methods and regularisation",
+      "trees and boosting",
+      "support vector machines",
+      "unsupervised learning"
+    ]
+  },
+  {
+    "id": "pen-paper-ml",
+    "title": "Exercises in Machine Learning",
+    "language": "en",
+    "sourceTitle": "Pen and Paper Exercises in Machine Learning",
+    "authors": "Michael U. Gutmann",
+    "sourceUrl": "https://arxiv.org/abs/2206.13446",
+    "availability": "Open arXiv manuscript",
+    "license": "Author-distributed through arXiv",
+    "files": [
+      {
+        "url": "https://arxiv.org/pdf/2206.13446",
+        "filename": "pen-paper-machine-learning.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "optimisation",
+      "graphical models",
+      "message passing",
+      "Monte Carlo inference",
+      "variational inference"
+    ]
+  },
+  {
+    "id": "ml-system-design",
+    "title": "ML interview and system design",
+    "language": "en",
+    "sourceTitle": "Machine Learning System Design",
+    "authors": "Valerii Babushkin, Arseny Kravchenko",
+    "sourceUrl": "https://www.manning.com/books/machine-learning-system-design",
+    "availability": "Commercial book plus the authors' complete open companion repository",
+    "license": "Book is commercial; official companion repository is MIT licensed",
+    "files": [
+      {
+        "url": "https://www.manning.com/books/machine-learning-system-design",
+        "filename": "ml-system-design-public-page.html",
+        "kind": "html"
+      },
+      {
+        "url": "https://github.com/ML-SystemDesign/MLSystemDesign/archive/refs/heads/main.zip",
+        "filename": "ml-system-design-companion.zip",
+        "kind": "zip"
+      }
+    ],
+    "topics": [
+      "requirements and success metrics",
+      "data collection and error analysis",
+      "training-serving skew",
+      "reliable deployment and monitoring",
+      "scalable ML architecture"
+    ]
+  },
+  {
+    "id": "algoday",
+    "title": "Algorithm day",
+    "language": "en",
+    "sourceTitle": "Competitive Programmer's Handbook",
+    "authors": "Antti Laaksonen",
+    "sourceUrl": "https://cses.fi/book/",
+    "availability": "Free full book",
+    "license": "Free educational book",
+    "files": [
+      {
+        "url": "https://cses.fi/book.pdf",
+        "filename": "competitive-programmers-handbook.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "algorithmic complexity",
+      "dynamic programming",
+      "graph algorithms",
+      "range queries",
+      "string algorithms"
+    ]
+  },
+  {
+    "id": "ml-problems-day",
+    "title": "ML problems day",
+    "language": "en",
+    "sourceTitle": "Mathematics for Machine Learning",
+    "authors": "Marc Peter Deisenroth, A. Aldo Faisal, Cheng Soon Ong",
+    "sourceUrl": "https://mml-book.github.io/",
+    "availability": "Author-hosted full book",
+    "license": "Copyright authors; PDF intentionally provided free",
+    "files": [
+      {
+        "url": "https://mml-book.github.io/book/mml-book.pdf",
+        "filename": "mathematics-for-machine-learning.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "matrix decompositions",
+      "vector calculus",
+      "probability",
+      "continuous optimisation",
+      "PCA and support vector machines"
+    ]
+  },
+  {
+    "id": "mathday",
+    "title": "Math day",
+    "language": "en",
+    "sourceTitle": "Book of Proof",
+    "authors": "Richard Hammack",
+    "sourceUrl": "https://richardhammack.github.io/BookOfProof/",
+    "availability": "Open full book",
+    "license": "CC BY-NC-ND 4.0",
+    "files": [
+      {
+        "url": "https://richardhammack.github.io/BookOfProof/Main.pdf",
+        "filename": "book-of-proof.pdf",
+        "kind": "pdf"
+      }
+    ],
+    "topics": [
+      "logic and sets",
+      "direct and contrapositive proof",
+      "proof by contradiction",
+      "induction",
+      "relations, functions, and cardinality"
+    ]
+  }
+]

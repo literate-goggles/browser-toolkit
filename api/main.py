@@ -34,8 +34,10 @@ from pydantic import (
 
 try:
     from .daily_digest import DailyDigestService, DailyResponse
+    from .daily_math import DailyMathService, MathDailyResponse
 except ImportError:
     from daily_digest import DailyDigestService, DailyResponse
+    from daily_math import DailyMathService, MathDailyResponse
 
 
 API_DIR = Path(__file__).resolve().parent
@@ -59,6 +61,18 @@ BANS_DATA_FILE = Path(
 ).expanduser()
 DAILY_DATA_FILE = Path(
     os.getenv("DAILY_DATA_FILE", str(API_DIR / "daily.json"))
+).expanduser()
+MATH_DATA_FILE = Path(
+    os.getenv("MATH_DATA_FILE", str(API_DIR / "math_daily.json"))
+).expanduser()
+MATH_SOURCES_FILE = Path(
+    os.getenv("MATH_SOURCES_FILE", str(API_DIR / "math_sources.json"))
+).expanduser()
+MATH_RESOURCES_DIR = Path(
+    os.getenv(
+        "MATH_RESOURCES_DIR",
+        str(API_DIR / "resources" / "math_sources"),
+    )
 ).expanduser()
 DAILY_TIMEZONE = _configuration("DAILY_TIMEZONE", "UTC")
 OPENAI_API_KEY = _configuration("OPENAI_API_KEY")
@@ -201,18 +215,22 @@ WRITING_MODE_SPECS: dict[str, dict[str, str | int]] = {
 }
 
 daily_service: DailyDigestService | None = None
+daily_math_service: DailyMathService | None = None
 
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
-    scheduler_task = (
-        asyncio.create_task(daily_service.scheduler()) if daily_service else None
-    )
+    scheduler_tasks = [
+        asyncio.create_task(service.scheduler())
+        for service in (daily_service, daily_math_service)
+        if service is not None
+    ]
     try:
         yield
     finally:
-        if scheduler_task:
+        for scheduler_task in scheduler_tasks:
             scheduler_task.cancel()
+        for scheduler_task in scheduler_tasks:
             with suppress(asyncio.CancelledError):
                 await scheduler_task
 
@@ -578,14 +596,16 @@ async def _openai_json(
     schema_name: str,
     schema: dict[str, Any],
     max_tokens: int,
+    reasoning_effort: str | None = None,
+    verbosity: str = "medium",
 ) -> dict[str, Any]:
     api_key = _require_provider_key(OPENAI_API_KEY, "OpenAI")
     payload = {
         "model": OPENAI_TEXT_MODEL,
         "input": messages,
-        "reasoning": {"effort": OPENAI_TEXT_REASONING_EFFORT},
+        "reasoning": {"effort": reasoning_effort or OPENAI_TEXT_REASONING_EFFORT},
         "text": {
-            "verbosity": "medium",
+            "verbosity": verbosity,
             "format": {
                 "type": "json_schema",
                 "name": schema_name,
@@ -601,7 +621,10 @@ async def _openai_json(
         "Content-Type": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(120.0)) as client:
+        timeout_seconds = (
+            300.0 if reasoning_effort in {"high", "xhigh"} else 120.0
+        )
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout_seconds)) as client:
             response = await client.post(
                 OPENAI_RESPONSES_URL, headers=headers, json=payload
             )
@@ -629,6 +652,13 @@ async def _openai_json(
 
 daily_service = DailyDigestService(
     data_file=DAILY_DATA_FILE,
+    timezone_name=DAILY_TIMEZONE,
+    json_generator=_openai_json,
+)
+daily_math_service = DailyMathService(
+    data_file=MATH_DATA_FILE,
+    manifest_file=MATH_SOURCES_FILE,
+    resources_dir=MATH_RESOURCES_DIR,
     timezone_name=DAILY_TIMEZONE,
     json_generator=_openai_json,
 )
@@ -1173,6 +1203,24 @@ async def get_daily_digest() -> DailyResponse:
         raise HTTPException(
             status_code=502,
             detail="Could not prepare today's daily digest. Please try again shortly.",
+        ) from exc
+
+
+@app.get("/api/daily/math", response_model=MathDailyResponse)
+async def get_daily_math() -> MathDailyResponse:
+    if not daily_math_service:
+        raise HTTPException(
+            status_code=503, detail="The daily math service is unavailable"
+        )
+    try:
+        return await daily_math_service.get()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[daily-math] could not prepare practice: {exc}", flush=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not prepare today's math practice. Please try again shortly.",
         ) from exc
 
 

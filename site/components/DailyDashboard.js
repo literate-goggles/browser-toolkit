@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import DailyMathPractice from "./DailyMathPractice";
 
 const PRACTICE_LINKS = [
   {
@@ -271,6 +272,8 @@ export default function DailyDashboard() {
               ))}
             </div>
           </section>
+
+          <DailyMathPractice />
 
           <section className="daily-section" aria-labelledby="cars-heading">
             <SectionHeading

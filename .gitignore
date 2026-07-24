@@ -21,6 +21,9 @@ src/js/vocab-pte.js
 # Runtime state written by the FastAPI service
 api/bans.json
 api/daily.json
+api/math_daily.json
+api/resources/math_sources/*
+!api/resources/math_sources/.gitkeep
 
 # OS-specific files
 .DS_Store

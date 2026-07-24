@@ -42,6 +42,23 @@ Select work relevant to NLP, generative models, and image generation. Summarise
 the problem, the main idea, important results, and why the work matters. Avoid
 repeating previously covered research.
 
+## Math and ML problem studio
+
+Prepare three original problems every day for each scheduled subject:
+mathematical analysis, linear algebra, Leningrad mathematical circles, deep
+learning foundations, statistical learning, pen-and-paper ML, ML system
+design, algorithms, ML mathematics, and proof practice.
+
+- Ground each set in a complete legitimate book or author-provided source
+  cached by the backend. For a commercial book without a legal full download,
+  use its official public material and complete author companion repository.
+- Use OpenAI GPT-5.6 Sol with high reasoning effort to create and check a
+  warm-up, core, and stretch problem.
+- Show a hint, an educational worked solution, and a modified follow-up with
+  its own solution. Render all notation with KaTeX.
+- Remember prior problem concepts and structures so later days do not repeat
+  them.
+
 ## Cars
 
 Show no more than three sampled historical or modern car models. For each one,
