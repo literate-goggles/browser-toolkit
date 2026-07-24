@@ -1856,3 +1856,828 @@ button {
     animation: none;
   }
 }
+
+/* Daily morning dashboard */
+
+.daily-page-shell {
+  place-items: start center;
+  padding: 28px 18px 64px;
+  background:
+    radial-gradient(circle at 8% 5%, rgba(217, 119, 87, 0.14), transparent 32%),
+    radial-gradient(circle at 92% 18%, rgba(48, 95, 95, 0.13), transparent 28%),
+    #f2f0e9;
+}
+
+.daily-main {
+  max-width: 1180px;
+  align-items: stretch;
+  gap: 0;
+}
+
+.daily-dashboard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.daily-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 390px;
+  border-radius: 28px;
+  padding: 28px 32px 32px;
+  color: #f8f6ef;
+  background:
+    linear-gradient(135deg, rgba(8, 19, 26, 0.96), rgba(18, 46, 49, 0.93)),
+    #0d2025;
+  box-shadow: 0 30px 70px rgba(24, 38, 40, 0.16);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.daily-hero::before {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  right: -95px;
+  top: -130px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  box-shadow:
+    0 0 0 58px rgba(255, 255, 255, 0.035),
+    0 0 0 116px rgba(255, 255, 255, 0.02);
+}
+
+.daily-hero::after {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 4px;
+  right: 42px;
+  bottom: 50px;
+  background: linear-gradient(90deg, #d97757, rgba(217, 119, 87, 0));
+}
+
+.daily-brand-row,
+.daily-hero-copy,
+.daily-date-line {
+  position: relative;
+  z-index: 1;
+}
+
+.daily-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.daily-brand {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.daily-generated {
+  color: rgba(248, 246, 239, 0.58);
+  font-size: 11px;
+}
+
+.daily-hero-copy {
+  max-width: 760px;
+  padding: 60px 0 44px;
+}
+
+.daily-kicker {
+  display: inline-block;
+  color: #e89a78;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.daily-hero h1 {
+  max-width: 680px;
+  margin-top: 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(38px, 6vw, 68px);
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.daily-hero-copy > p {
+  max-width: 610px;
+  margin-top: 22px;
+  color: rgba(248, 246, 239, 0.72);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.daily-date-line {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.daily-date-line time {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+}
+
+.daily-date-line span {
+  color: rgba(248, 246, 239, 0.52);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.daily-routine,
+.daily-section {
+  padding: 30px;
+  border: 1px solid rgba(50, 60, 58, 0.1);
+  border-radius: 24px;
+  background: rgba(255, 254, 249, 0.86);
+  box-shadow: 0 16px 36px rgba(32, 46, 43, 0.055);
+}
+
+.daily-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.daily-section-heading span {
+  display: block;
+  margin-bottom: 5px;
+  color: #ad5c40;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.daily-section-heading h2 {
+  color: #172d2d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(25px, 4vw, 36px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+}
+
+.daily-section-heading > p {
+  max-width: 360px;
+  color: #6a7470;
+  font-size: 12px;
+  text-align: right;
+}
+
+.daily-practice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-practice-card {
+  min-height: 154px;
+  padding: 18px;
+  border: 1px solid #dfe1da;
+  border-radius: 16px;
+  background: #fbfaf5;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 14px;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .daily-practice-card:hover {
+    transform: translateY(-2px);
+    border-color: #386b68;
+    box-shadow: 0 14px 28px rgba(29, 65, 62, 0.09);
+  }
+}
+
+.daily-practice-number,
+.daily-research-index,
+.daily-car-number {
+  color: #b46b4e;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.daily-practice-card h3 {
+  color: #183333;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.daily-practice-card p {
+  margin-top: 9px;
+  color: #6a7470;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.daily-card-arrow {
+  color: #386b68;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.daily-loading,
+.daily-load-error {
+  min-height: 150px;
+  padding: 28px 32px;
+  border: 1px dashed rgba(42, 76, 73, 0.28);
+  border-radius: 22px;
+  background: rgba(255, 254, 249, 0.68);
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.daily-loading-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(43, 85, 81, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.daily-loading-mark span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #386b68;
+  animation: daily-pulse 1.1s infinite ease-in-out;
+}
+
+.daily-loading-mark span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.daily-loading-mark span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes daily-pulse {
+  0%,
+  70%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.daily-loading strong,
+.daily-load-error > span {
+  color: #183333;
+  font-size: 15px;
+}
+
+.daily-loading p,
+.daily-load-error p {
+  max-width: 590px;
+  margin-top: 4px;
+  color: #6a7470;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.daily-load-error {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.daily-load-error button {
+  margin-top: 12px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  background: #285955;
+  cursor: pointer;
+}
+
+.daily-warning {
+  padding: 12px 16px;
+  border: 1px solid #e7c990;
+  border-radius: 12px;
+  color: #7b541d;
+  background: #fff7e4;
+  font-size: 12px;
+}
+
+.daily-history-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-history-card {
+  min-height: 260px;
+  padding: 22px;
+  border-radius: 18px;
+  color: #e8efeb;
+  background: #1b3c3a;
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-history-card:nth-child(4n + 2),
+.daily-history-card:nth-child(4n + 3) {
+  color: #243937;
+  background: #e7e0d0;
+}
+
+.daily-history-meta,
+.daily-research-meta,
+.daily-car-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.daily-history-meta {
+  justify-content: space-between;
+  color: rgba(232, 239, 235, 0.62);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.daily-history-card:nth-child(4n + 2) .daily-history-meta,
+.daily-history-card:nth-child(4n + 3) .daily-history-meta {
+  color: rgba(36, 57, 55, 0.58);
+}
+
+.daily-history-year {
+  margin-top: 28px;
+  color: #e89a78;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 26px;
+  font-style: italic;
+}
+
+.daily-history-card h3 {
+  margin-top: 7px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.12;
+}
+
+.daily-history-card p {
+  margin-top: 12px;
+  color: rgba(232, 239, 235, 0.74);
+  font-size: 12px;
+  line-height: 1.62;
+}
+
+.daily-history-card:nth-child(4n + 2) p,
+.daily-history-card:nth-child(4n + 3) p {
+  color: rgba(36, 57, 55, 0.74);
+}
+
+.daily-history-card a,
+.daily-research-card a {
+  width: fit-content;
+  margin-top: auto;
+  padding-top: 18px;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.72;
+}
+
+.daily-research-section {
+  color: #eaf0ed;
+  background: #122a2b;
+}
+
+.daily-research-section .daily-section-heading h2 {
+  color: #f3f1e9;
+}
+
+.daily-research-section .daily-section-heading > p {
+  color: rgba(234, 240, 237, 0.58);
+}
+
+.daily-research-list {
+  border-top: 1px solid rgba(255, 255, 255, 0.11);
+}
+
+.daily-research-card {
+  padding: 26px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.11);
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 18px;
+}
+
+.daily-research-meta {
+  color: rgba(234, 240, 237, 0.55);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.daily-research-meta span:not(:last-child)::after {
+  content: "/";
+  padding-left: 7px;
+  opacity: 0.42;
+}
+
+.daily-research-card h3 {
+  max-width: 840px;
+  margin-top: 9px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 400;
+  line-height: 1.12;
+}
+
+.daily-research-summary {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.daily-research-summary > div {
+  padding: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.daily-research-summary strong {
+  color: #e89a78;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.daily-research-summary p {
+  margin-top: 7px;
+  color: rgba(234, 240, 237, 0.72);
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.daily-research-summary .daily-research-why {
+  border-color: rgba(232, 154, 120, 0.28);
+  background: rgba(232, 154, 120, 0.055);
+}
+
+.daily-car-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-car-card {
+  min-height: 390px;
+  padding: 22px;
+  border: 1px solid #daddd5;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(239, 234, 220, 0.5), transparent 45%), #fbfaf5;
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-car-meta {
+  margin-top: 28px;
+  color: #6c7671;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-car-meta span:not(:last-child)::after {
+  content: "/";
+  padding-left: 7px;
+  color: #b46b4e;
+}
+
+.daily-car-card h3 {
+  margin-top: 8px;
+  color: #183333;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.daily-car-category {
+  margin-top: 6px;
+  color: #b05f43;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.daily-car-card ul {
+  margin: 22px 0 0;
+  padding-left: 16px;
+  color: #5f6d68;
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+.daily-car-card li + li {
+  margin-top: 6px;
+}
+
+.daily-car-why {
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid #e0e2db;
+}
+
+.daily-car-why strong {
+  color: #183333;
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.daily-car-why p {
+  margin-top: 7px;
+  color: #64716d;
+  font-size: 11px;
+  line-height: 1.58;
+}
+
+.daily-poetry-section {
+  padding: 0;
+  overflow: hidden;
+  color: #253a37;
+  background: #e4dfd2;
+}
+
+.daily-poetry-card {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.8fr) minmax(0, 1.2fr);
+}
+
+.daily-poetry-intro {
+  padding: 38px;
+  border-right: 1px solid rgba(36, 57, 55, 0.12);
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-poetry-intro h2 {
+  margin-top: 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(29px, 4vw, 44px);
+  font-weight: 400;
+  line-height: 1;
+}
+
+.daily-poetry-intro > p {
+  margin-top: 10px;
+  color: #a3583f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.daily-poetry-note {
+  margin-top: auto;
+  padding-top: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.daily-poetry-note strong {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.daily-poetry-note span {
+  color: #66736e;
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.daily-poetry-card blockquote {
+  margin: 0;
+  padding: 42px clamp(30px, 7vw, 80px);
+  white-space: pre-wrap;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 2.4vw, 22px);
+  font-style: normal;
+  line-height: 1.75;
+  background: rgba(255, 254, 249, 0.35);
+}
+
+.daily-footer {
+  padding: 10px 6px 0;
+  color: #68736f;
+  font-size: 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.daily-footer > div > span {
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-source-list {
+  margin-top: 7px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+}
+
+.daily-source-list a {
+  border: 1px solid rgba(104, 115, 111, 0.28);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  text-decoration: none;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.daily-source-list a:hover,
+.daily-source-list a:focus-visible {
+  background: rgba(104, 115, 111, 0.08);
+  border-color: rgba(104, 115, 111, 0.58);
+}
+
+.daily-source-list a[data-ok="false"] {
+  opacity: 0.42;
+  text-decoration: line-through;
+}
+
+.daily-footer > a {
+  color: #2b5d59;
+  font-weight: 700;
+}
+
+@media (max-width: 840px) {
+  .daily-practice-grid,
+  .daily-car-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-practice-card {
+    min-height: 112px;
+  }
+
+  .daily-car-card {
+    min-height: 0;
+  }
+
+  .daily-car-why {
+    margin-top: 26px;
+  }
+
+  .daily-poetry-card {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-poetry-intro {
+    border-right: 0;
+    border-bottom: 1px solid rgba(36, 57, 55, 0.12);
+  }
+
+  .daily-poetry-note {
+    margin-top: 28px;
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .daily-page-shell {
+    padding: 12px 10px 42px;
+  }
+
+  .daily-dashboard {
+    gap: 12px;
+  }
+
+  .daily-hero {
+    min-height: 440px;
+    padding: 20px;
+    border-radius: 20px;
+  }
+
+  .daily-hero-copy {
+    padding: 54px 0 34px;
+  }
+
+  .daily-hero h1 {
+    font-size: 42px;
+  }
+
+  .daily-brand-row,
+  .daily-date-line,
+  .daily-section-heading,
+  .daily-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .daily-generated {
+    display: none;
+  }
+
+  .daily-date-line {
+    gap: 7px;
+  }
+
+  .daily-routine,
+  .daily-section {
+    padding: 21px;
+    border-radius: 18px;
+  }
+
+  .daily-section-heading {
+    gap: 9px;
+  }
+
+  .daily-section-heading > p {
+    text-align: left;
+  }
+
+  .daily-history-grid,
+  .daily-research-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-history-card {
+    min-height: 235px;
+  }
+
+  .daily-research-card {
+    grid-template-columns: 30px 1fr;
+    gap: 8px;
+  }
+
+  .daily-research-summary {
+    gap: 8px;
+  }
+
+  .daily-poetry-intro,
+  .daily-poetry-card blockquote {
+    padding: 28px 22px;
+  }
+
+  .daily-footer {
+    padding: 10px 8px 0;
+    gap: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-loading-mark span {
+    animation: none;
+  }
+
+  .daily-practice-card {
+    transition: none;
+  }
+}

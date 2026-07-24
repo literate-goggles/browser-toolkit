@@ -3,7 +3,7 @@ import "./globals.css";
 export const metadata = {
   title: "daily.chebakov.me",
   description:
-    "Personal study tools for vocabulary, listening, IELTS speaking and writing.",
+    "A personal morning dashboard for focused study and daily research.",
 };
 
 export default function RootLayout({ children }) {

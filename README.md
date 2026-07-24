@@ -2,9 +2,31 @@
 
 LiterateGoggles is a personal browser toolkit for tweaking the way websites look and behave. It starts with small conveniences—like hiding LeetCode difficulty badges so you can focus on solving the problem—and invites you to grow a collection of similar experiments for any site you use.
 
+## daily.chebakov.me
+
+The repository also contains a personal morning dashboard built with a static
+Next.js/React frontend and a FastAPI backend.
+
+The homepage follows [DAILY.md](./DAILY.md) and combines:
+
+- direct access to IELTS vocabulary, speaking, and writing practice;
+- bilingual "on this day" history from English and Russian Wikipedia;
+- daily ML research selected from Hugging Face Papers, the Hugging Face blog,
+  and alphaXiv;
+- short introductions to important car models;
+- public-domain Russian poetry for memory practice.
+
+FastAPI refreshes the digest at midnight in the configured timezone, with a
+first-visit fallback after a date change. The generated digest and selection
+history persist in `api/daily.json`, preventing research, cars, and poetry from
+repeating across restarts. All LLM generation uses OpenAI GPT-5.6 Sol through
+the Responses API; provider credentials remain server-side.
+
+See [api/README.md](./api/README.md) for local and production setup.
+
 ## What it can do today
 
-- Strip rank/file coordinate overlays from Aimchess chessboards when you’d rather rely on intuition.
+- Strip rank/file coordinate overlays from Aimchess chessboards when you'd rather rely on intuition.
 - Hide LeetCode problem difficulty labels until you want to see them.
 - Block Chess.com with a full-screen reminder once you've already played more than three games in a day.
 - Keep a global on/off switch so you can pause every tweak with a single click.

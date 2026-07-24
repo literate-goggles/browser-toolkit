@@ -1,13 +1,15 @@
 # daily.chebakov.me · FastAPI backend
 
-One Python service backs the static Next.js site. It keeps the existing shared
-vocab bans API and runs the server-only IELTS speaking pipeline.
+One Python service backs the static Next.js site. It prepares and remembers the
+daily morning digest, keeps the shared vocab bans API, and runs the server-only
+IELTS pipelines.
 
 ## Endpoints
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/health` | Service and provider-key readiness |
+| `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
 | `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
 | `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
@@ -26,6 +28,13 @@ text, GPT-Audio-1.5 listens for pronunciation, rhythm, intelligibility, and
 naturalness, and GPT-5.6 Sol produces structured IELTS feedback.
 Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
+
+The daily digest fetches both Wikipedia date pages, Hugging Face Daily Papers,
+the Hugging Face blog, and alphaXiv. GPT-5.6 Sol selects and writes
+self-contained summaries. The result and persistent non-repetition history are
+stored in `api/daily.json`. A background scheduler refreshes after midnight in
+`DAILY_TIMEZONE`; the first request after a date change is a synchronous
+fallback if the scheduled refresh has not finished.
 
 ## Setup
 
@@ -46,6 +55,7 @@ OPENAI_TEXT_MODEL=gpt-5.6-sol
 OPENAI_TEXT_REASONING_EFFORT=low
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 OPENAI_AUDIO_MODEL=gpt-audio-1.5
+DAILY_TIMEZONE=UTC
 ```
 
 A repository-root `.env` supplies the server-only OpenAI key without exposing
@@ -73,4 +83,5 @@ sudo systemctl status daily-vocab-bans
 sudo journalctl -u daily-vocab-bans -f
 ```
 
-Runtime bans remain in `api/bans.json` and are excluded from git.
+Runtime bans remain in `api/bans.json`; the daily cache and history live in
+`api/daily.json`. Both files are excluded from git.

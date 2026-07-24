@@ -18,8 +18,9 @@ src/js/vocab-c1.js
 src/js/vocab-c2.js
 src/js/vocab-pte.js
 
-# Runtime state for the daily-vocab-bans API (written by the service)
+# Runtime state written by the FastAPI service
 api/bans.json
+api/daily.json
 
 # OS-specific files
 .DS_Store

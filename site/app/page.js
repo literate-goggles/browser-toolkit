@@ -1,46 +1,16 @@
-import Link from "next/link";
+import DailyDashboard from "@/components/DailyDashboard";
+
+export const metadata = {
+  title: "Morning brief · daily.chebakov.me",
+  description:
+    "A personal daily dashboard for IELTS, machine learning research, history, cars, and Russian poetry.",
+};
 
 export default function HomePage() {
   return (
-    <div className="page-shell">
-      <main className="page-main">
-        <header className="site-header">
-          <h1 className="site-title">daily.chebakov.me</h1>
-          <p className="site-subtitle">Small tools for the everyday</p>
-        </header>
-
-        <div className="tool-grid">
-          <Link className="tool-card" href="/vocab/">
-            <span className="tool-title">English vocab quiz</span>
-            <span className="tool-description">
-              English → Russian flashcard quizzes with pronunciation, sample
-              sentences and a whole-list study session. Multiple sources (books,
-              CEFR lists, exam banks).
-            </span>
-          </Link>
-          <Link className="tool-card" href="/repeat-sentence/">
-            <span className="tool-title">Repeat sentence</span>
-            <span className="tool-description">
-              PTE-style listening practice — an audio plays once, you try to
-              repeat it back, then reveal the text to check.
-            </span>
-          </Link>
-          <Link className="tool-card" href="/ielts-speaking/">
-            <span className="tool-title">IELTS speaking</span>
-            <span className="tool-description">
-              All three speaking parts with fresh topics, automatic recording,
-              transcription, pronunciation and naturalness feedback aimed at
-              band 7.5.
-            </span>
-          </Link>
-          <Link className="tool-card" href="/ielts-writing/">
-            <span className="tool-title">IELTS writing</span>
-            <span className="tool-description">
-              Academic visuals, General Training letters and every common Task 2
-              essay form, with timed feedback aimed at band 7.5.
-            </span>
-          </Link>
-        </div>
+    <div className="page-shell daily-page-shell">
+      <main className="page-main daily-main">
+        <DailyDashboard />
       </main>
     </div>
   );

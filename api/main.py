@@ -7,6 +7,7 @@ server.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import os
@@ -15,6 +16,7 @@ import threading
 import time
 import uuid
 from collections import defaultdict, deque
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any, Literal
 
@@ -29,6 +31,11 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+
+try:
+    from .daily_digest import DailyDigestService, DailyResponse
+except ImportError:
+    from daily_digest import DailyDigestService, DailyResponse
 
 
 API_DIR = Path(__file__).resolve().parent
@@ -50,6 +57,10 @@ def _configuration(name: str, default: str = "") -> str:
 BANS_DATA_FILE = Path(
     os.getenv("BANS_DATA_FILE", str(API_DIR / "bans.json"))
 ).expanduser()
+DAILY_DATA_FILE = Path(
+    os.getenv("DAILY_DATA_FILE", str(API_DIR / "daily.json"))
+).expanduser()
+DAILY_TIMEZONE = _configuration("DAILY_TIMEZONE", "UTC")
 OPENAI_API_KEY = _configuration("OPENAI_API_KEY")
 OPENAI_TEXT_MODEL = _configuration("OPENAI_TEXT_MODEL", "gpt-5.6-sol")
 OPENAI_TEXT_REASONING_EFFORT = _configuration(
@@ -189,11 +200,29 @@ WRITING_MODE_SPECS: dict[str, dict[str, str | int]] = {
     },
 }
 
+daily_service: DailyDigestService | None = None
+
+
+@asynccontextmanager
+async def _lifespan(_: FastAPI):
+    scheduler_task = (
+        asyncio.create_task(daily_service.scheduler()) if daily_service else None
+    )
+    try:
+        yield
+    finally:
+        if scheduler_task:
+            scheduler_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler_task
+
+
 app = FastAPI(
     title="daily.chebakov.me API",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=_lifespan,
 )
 _store_lock = threading.Lock()
 _rate_limit_lock = threading.Lock()
@@ -592,10 +621,17 @@ async def _openai_json(
             raise ValueError(f"response was incomplete: {reason}")
         return _parse_json_content(_openai_output_text(body))
     except (AttributeError, TypeError, ValueError, json.JSONDecodeError) as exc:
-        print(f"[ielts] invalid OpenAI response: {exc}", flush=True)
+        print(f"[openai] invalid structured response: {exc}", flush=True)
         raise HTTPException(
             status_code=502, detail="OpenAI returned an invalid response"
         ) from exc
+
+
+daily_service = DailyDigestService(
+    data_file=DAILY_DATA_FILE,
+    timezone_name=DAILY_TIMEZONE,
+    json_generator=_openai_json,
+)
 
 
 async def _openai_transcribe(
@@ -1120,6 +1156,24 @@ async def health() -> dict[str, Any]:
             "openai": bool(OPENAI_API_KEY),
         },
     }
+
+
+@app.get("/api/daily", response_model=DailyResponse)
+async def get_daily_digest() -> DailyResponse:
+    if not daily_service:
+        raise HTTPException(
+            status_code=503, detail="The daily digest service is unavailable"
+        )
+    try:
+        return await daily_service.get()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[daily] could not prepare digest: {exc}", flush=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not prepare today's daily digest. Please try again shortly.",
+        ) from exc
 
 
 @app.get("/api/vocab/bans")
