@@ -14,7 +14,8 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
 - daily ML research selected from Hugging Face Papers, the Hugging Face blog,
   and alphaXiv;
 - 30 daily source-grounded mathematics and ML problems, with worked solutions
-  and transfer exercises;
+  and transfer exercises; Algorithm day combines one book problem with one
+  LeetCode Medium and one LeetCode Hard problem, all with Python solutions;
 - short introductions to important car models;
 - public-domain Russian poetry for memory practice.
 

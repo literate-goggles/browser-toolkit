@@ -47,7 +47,7 @@ async function responseError(response) {
   return `Request failed (${response.status})`;
 }
 
-function Solution({ steps, finalAnswer }) {
+function Solution({ steps, finalAnswer, pythonSolution }) {
   return (
     <div className="math-solution">
       <ol>
@@ -62,6 +62,17 @@ function Solution({ steps, finalAnswer }) {
         <span className="math-final-label">Answer</span>
         <MathText>{finalAnswer}</MathText>
       </div>
+      {pythonSolution && (
+        <div className="math-python-solution">
+          <div>
+            <span>Python 3 solution</span>
+            <span>Runnable reference</span>
+          </div>
+          <pre>
+            <code>{pythonSolution}</code>
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
@@ -78,6 +89,18 @@ function ProblemCard({ problem, index }) {
         </span>
       </div>
       <h3>{problem.title}</h3>
+      <a
+        className="math-problem-source"
+        href={problem.sourceUrl}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {problem.sourceType === "leetcode"
+          ? `LeetCode ${problem.sourceDifficulty}`
+          : "Source book"}
+        <span>{problem.sourceTitle}</span>
+        <span aria-hidden="true">↗</span>
+      </a>
       <div className="math-concepts">
         {problem.concepts.map((concept) => (
           <span key={concept}>{concept}</span>
@@ -99,6 +122,7 @@ function ProblemCard({ problem, index }) {
         <Solution
           steps={problem.solutionSteps}
           finalAnswer={problem.finalAnswer}
+          pythonSolution={problem.pythonSolution}
         />
       </details>
 
@@ -113,6 +137,7 @@ function ProblemCard({ problem, index }) {
             <Solution
               steps={problem.followUp.solutionSteps}
               finalAnswer={problem.followUp.finalAnswer}
+              pythonSolution={problem.followUp.pythonSolution}
             />
           </details>
         </div>
@@ -179,7 +204,7 @@ export default function DailyMathPractice() {
         </div>
         <p>
           {subjects.length
-            ? `${problemCount} original problems across ${subjects.length} subjects, each with a worked transfer exercise.`
+            ? `${problemCount} source-based problems across ${subjects.length} subjects, each with a worked transfer exercise.`
             : "Three sourced problems per subject, with hints and worked follow-ups."}
         </p>
       </div>

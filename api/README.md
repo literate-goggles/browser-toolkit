@@ -51,12 +51,21 @@ cd api
 ../.venv/bin/python scripts/download_math_sources.py
 ```
 
-GPT-5.6 Sol uses high reasoning effort to prepare exactly three original
-problems per subject: warm-up, core, and stretch. Each includes a hint, a
-worked solution, and a modified follow-up with its own solution. The saved
-daily set and non-repetition keys live in `api/math_daily.json`. If a midnight
-refresh is still running, the API serves the previous set until the new one is
-ready.
+GPT-5.6 Sol uses high reasoning effort to prepare exactly three source-based
+problems per subject: warm-up, core, and stretch. It preserves the selected
+exercise's task and attribution, retaining source wording only when reuse terms
+permit it. Each includes a hint, a worked solution, and a modified follow-up
+with its own solution.
+
+Algorithm day is a fixed mix: one problem from Competitive Programmer's
+Handbook, one LeetCode Medium problem, and one LeetCode Hard problem. The
+backend chooses the LeetCode pair deterministically without repetition and
+requires syntactically valid Python 3 for every main and follow-up solution.
+The curated public problem catalog lives in `api/leetcode_problems.json`.
+
+The saved daily set and non-repetition keys live in `api/math_daily.json`. If a
+midnight refresh is still running, the API serves the previous set until the
+new one is ready.
 
 ## Setup
 

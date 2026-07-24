@@ -44,7 +44,7 @@ repeating previously covered research.
 
 ## Math and ML problem studio
 
-Prepare three original problems every day for each scheduled subject:
+Prepare three source-based problems every day for each scheduled subject:
 mathematical analysis, linear algebra, Leningrad mathematical circles, deep
 learning foundations, statistical learning, pen-and-paper ML, ML system
 design, algorithms, ML mathematics, and proof practice.
@@ -52,10 +52,16 @@ design, algorithms, ML mathematics, and proof practice.
 - Ground each set in a complete legitimate book or author-provided source
   cached by the backend. For a commercial book without a legal full download,
   use its official public material and complete author companion repository.
+- Preserve each selected exercise's task, data, constraints, and attribution.
+  Keep the source wording when its reuse terms allow it; otherwise use a
+  minimal faithful restatement.
 - Use OpenAI GPT-5.6 Sol with high reasoning effort to create and check a
   warm-up, core, and stretch problem.
 - Show a hint, an educational worked solution, and a modified follow-up with
   its own solution. Render all notation with KaTeX.
+- For Algorithm day, use one problem from Competitive Programmer's Handbook,
+  one LeetCode Medium problem, and one LeetCode Hard problem. Include runnable
+  Python 3 for each main problem and follow-up.
 - Remember prior problem concepts and structures so later days do not repeat
   them.
 

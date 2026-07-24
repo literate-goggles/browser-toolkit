@@ -2817,6 +2817,35 @@ button {
   line-height: 1.16;
 }
 
+.math-problem-source {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 10px;
+  color: #9c553d;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.math-problem-source > span:first-of-type {
+  max-width: 220px;
+  overflow: hidden;
+  color: #586763;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.math-problem-source > span:first-of-type::before {
+  content: "/";
+  margin-right: 4px;
+  color: #b6b8b0;
+}
+
 .math-concepts {
   min-height: 46px;
   margin-top: 11px;
@@ -2960,6 +2989,48 @@ button {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   display: block;
+}
+
+.math-python-solution {
+  margin-top: 13px;
+  border-radius: 10px;
+  overflow: hidden;
+  color: #dce8e4;
+  background: #122a2b;
+}
+
+.math-python-solution > div {
+  padding: 9px 11px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ef9a77;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.math-python-solution > div > span:last-child {
+  color: rgba(220, 232, 228, 0.46);
+}
+
+.math-python-solution pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 13px;
+  overflow-x: auto;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+.math-python-solution code {
+  font: inherit;
+  white-space: pre;
 }
 
 .math-follow-up-body {
