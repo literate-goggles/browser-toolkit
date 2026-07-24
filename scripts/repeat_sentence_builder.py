@@ -2,7 +2,7 @@
 """Generate PTE-style "Repeat Sentence" practice items with matching audio.
 
 Pipeline:
-  1. Ask an LLM (via OpenRouter) to write PTE-style academic English sentences.
+  1. Ask GPT-5.6 Sol to write PTE-style academic English sentences.
   2. Speak each sentence with ElevenLabs, rotating through a curated set of
      premade voices (UK/US/AU, mix of genders) so consecutive items don't
      sound identical.
@@ -35,8 +35,8 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_LLM = "anthropic/claude-sonnet-4.5"
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+DEFAULT_LLM = "gpt-5.6-sol"
 
 ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 DEFAULT_TTS_MODEL = "eleven_multilingual_v2"
@@ -58,7 +58,7 @@ VOICE_ROTATION = [
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter helpers
+# OpenAI helpers
 # ---------------------------------------------------------------------------
 
 def _extract_json(content: str) -> dict:
@@ -76,29 +76,46 @@ def _extract_json(content: str) -> dict:
     return json.loads(text)
 
 
-def openrouter_chat(messages: list[dict], api_key: str, model: str) -> dict:
+def _response_text(payload: dict) -> str:
+    direct = payload.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    parts: list[str] = []
+    for item in payload.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for content in item.get("content") or []:
+            if (
+                isinstance(content, dict)
+                and content.get("type") == "output_text"
+                and isinstance(content.get("text"), str)
+            ):
+                parts.append(content["text"])
+    return "".join(parts)
+
+
+def openai_json(messages: list[dict], api_key: str, model: str) -> dict:
     body = {
         "model": model,
-        "messages": messages,
-        "temperature": 0.9,
-        "response_format": {"type": "json_object"},
+        "input": messages,
+        "reasoning": {"effort": "low"},
+        "text": {"format": {"type": "json_object"}},
+        "max_output_tokens": 8_000,
+        "store": False,
     }
     resp = requests.post(
-        OPENROUTER_URL,
+        OPENAI_RESPONSES_URL,
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/literate-goggles/browser-toolkit",
-            "X-Title": "LiterateGoggles Repeat Sentence Builder",
         },
         json=body,
         timeout=240,
     )
     if resp.status_code != 200:
-        raise RuntimeError(f"OpenRouter chat error {resp.status_code}: {resp.text[:500]}")
+        raise RuntimeError(f"OpenAI error {resp.status_code}: {resp.text[:500]}")
     payload = resp.json()
-    content = payload["choices"][0]["message"]["content"]
-    return _extract_json(content)
+    return _extract_json(_response_text(payload))
 
 
 def elevenlabs_tts_mp3(
@@ -233,7 +250,7 @@ def generate_sentences(
 ) -> list[str]:
     already_seen = already_seen or []
     seen_lower = {s.lower() for s in already_seen}
-    data = openrouter_chat(
+    data = openai_json(
         build_sentence_prompt(count, difficulty, already_seen), api_key, model
     )
     raw = data.get("items")
@@ -354,7 +371,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+    openai_key = os.environ.get("OPENAI_API_KEY")
     elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY")
     if not elevenlabs_key:
         print("ERROR: ELEVENLABS_API_KEY missing from .env", file=sys.stderr)
@@ -367,8 +384,8 @@ def main() -> int:
     # APPEND MODE — generate N more items and merge with existing.
     # --------------------------------------------------------------
     if args.append > 0:
-        if not openrouter_key:
-            print("ERROR: OPENROUTER_API_KEY missing from .env", file=sys.stderr)
+        if not openai_key:
+            print("ERROR: OPENAI_API_KEY missing from .env", file=sys.stderr)
             return 1
         existing = load_existing_manifest(out_dir)
         existing_items = existing.get("items") or []
@@ -380,7 +397,7 @@ def main() -> int:
         )
         new_sentences = generate_sentences(
             args.append,
-            openrouter_key,
+            openai_key,
             args.llm_model,
             difficulty=args.difficulty,
             already_seen=existing_texts,
@@ -425,8 +442,8 @@ def main() -> int:
         sentences = load_existing_sentences(out_dir)
         print(f"      Got {len(sentences)} sentences to re-voice.")
     else:
-        if not openrouter_key:
-            print("ERROR: OPENROUTER_API_KEY missing from .env", file=sys.stderr)
+        if not openai_key:
+            print("ERROR: OPENAI_API_KEY missing from .env", file=sys.stderr)
             return 1
         print(
             f"[1/3] Generating {args.count} sentences via {args.llm_model} "
@@ -434,7 +451,7 @@ def main() -> int:
         )
         sentences = generate_sentences(
             args.count,
-            openrouter_key,
+            openai_key,
             args.llm_model,
             difficulty=args.difficulty,
         )

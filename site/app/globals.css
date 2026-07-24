@@ -1311,6 +1311,300 @@ button {
   line-height: 1.6;
 }
 
+.writing-mode-select {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--background-color);
+  color: var(--text-color);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 14px;
+}
+
+.writing-mode-select:focus {
+  border-color: var(--primary-color);
+  outline: 3px solid rgba(37, 99, 235, 0.1);
+}
+
+.writing-mode-select:disabled {
+  opacity: 0.65;
+}
+
+.writing-mode-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 16px;
+  margin-top: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--background-color);
+  padding: 13px 14px;
+}
+
+.writing-mode-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.writing-mode-summary strong {
+  font-size: 14px;
+}
+
+.writing-mode-summary span {
+  color: var(--muted-text);
+  font-size: 11px;
+}
+
+.writing-mode-summary > p {
+  grid-column: 1;
+  color: var(--muted-text);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.writing-mode-summary > span {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.writing-auto-start-note {
+  color: var(--muted-text);
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 9px;
+}
+
+.writing-visual-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.writing-visual-wrap > strong {
+  display: block;
+  padding: 11px 14px;
+  background: var(--background-color);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+}
+
+.writing-chart {
+  padding: 14px 14px 8px;
+}
+
+.writing-chart svg {
+  display: block;
+  width: 100%;
+  max-height: 330px;
+  overflow: visible;
+}
+
+.writing-chart-grid {
+  stroke: var(--border-color);
+  stroke-width: 0.35;
+}
+
+.writing-chart-label {
+  fill: var(--muted-text);
+  font-size: 3px;
+}
+
+.writing-chart-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px 15px;
+  margin: 7px 0;
+  color: var(--muted-text);
+  font-size: 11px;
+}
+
+.writing-chart-legend span,
+.writing-pie-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.writing-chart-legend i,
+.writing-pie-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.writing-chart-data {
+  border-width: 1px 0 0;
+  border-radius: 0;
+}
+
+.writing-bars {
+  min-height: 300px;
+  padding: 25px 20px 10px;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.writing-bar-group {
+  flex: 1 1 70px;
+  min-width: 60px;
+  height: 235px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+
+.writing-bar-stack {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.writing-bar-stack span {
+  width: min(18px, 36%);
+  min-height: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.writing-bar-group small {
+  min-height: 28px;
+  color: var(--muted-text);
+  font-size: 9px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.writing-bars .writing-chart-legend {
+  flex-basis: 100%;
+}
+
+.writing-pie-layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 28px;
+}
+
+.writing-pie {
+  width: min(250px, 44vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.writing-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--muted-text);
+  font-size: 12px;
+}
+
+.writing-process {
+  display: flex;
+  align-items: stretch;
+  gap: 22px;
+  overflow-x: auto;
+  padding: 22px;
+}
+
+.writing-process-stage {
+  position: relative;
+  flex: 0 0 145px;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--background-color);
+  padding: 13px;
+}
+
+.writing-process-stage > span {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.writing-process-stage p {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.writing-process-stage i {
+  position: absolute;
+  left: calc(100% + 7px);
+  top: 50%;
+  color: var(--primary-color);
+  font-style: normal;
+  font-size: 18px;
+}
+
+.writing-maps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+}
+
+.writing-map-panel > strong {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--muted-text);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.writing-map-canvas {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(37, 99, 235, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.045) 1px, transparent 1px),
+    var(--background-color);
+  background-size: 10% 10%;
+}
+
+.writing-map-canvas span {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 5px;
+  background: rgba(37, 99, 235, 0.11);
+  color: var(--text-color);
+  padding: 2px;
+  font-size: clamp(7px, 1vw, 10px);
+  line-height: 1.1;
+  text-align: center;
+}
+
+.writing-letter-points {
+  margin-top: 0;
+}
+
 .writing-table-wrap {
   border: 1px solid var(--border-color);
   border-radius: 11px;
@@ -1513,6 +1807,28 @@ button {
 }
 
 @media (max-width: 620px) {
+  .writing-mode-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .writing-mode-summary > span {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .writing-pie-layout {
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .writing-pie {
+    width: min(230px, 70vw);
+  }
+
+  .writing-maps {
+    grid-template-columns: 1fr;
+  }
+
   .writing-editor-toolbar,
   .writing-editor-actions {
     align-items: stretch;

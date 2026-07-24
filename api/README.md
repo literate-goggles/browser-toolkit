@@ -12,15 +12,18 @@ vocab bans API and runs the server-only IELTS speaking pipeline.
 | `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
 | `DELETE` | `/api/vocab/bans/<sourceId>/<word>` | Unban one word |
-| `POST` | `/api/ielts/topic` | Generate a 25-second or two-minute topic through OpenRouter |
-| `POST` | `/api/ielts/transcribe` | Transcribe a raw browser audio upload through ElevenLabs Scribe |
-| `POST` | `/api/ielts/evaluate` | Evaluate a transcript against the band-7.5 target through OpenRouter |
-| `POST` | `/api/ielts/writing/topic` | Generate Academic Task 1 tables or Task 2 essay prompts |
+| `POST` | `/api/ielts/topic` | Generate a Speaking Part 1, 2, or 3 topic with GPT-5.6 Sol |
+| `POST` | `/api/ielts/transcribe` | Transcribe audio and assess audible delivery with OpenAI |
+| `POST` | `/api/ielts/evaluate` | Combine transcript and audio evidence into band-7.5 feedback |
+| `POST` | `/api/ielts/writing/topic` | Generate Academic visuals, General Training letters, or Task 2 essays |
 | `POST` | `/api/ielts/writing/evaluate` | Evaluate writing against four IELTS criteria and the 7.5 target |
 
-The browser calls transcription and evaluation separately so it can show the
-real pipeline stage and retry evaluation without uploading audio again.
-Recordings are not persisted by the backend.
+The browser converts its recording to 16 kHz mono WAV, then calls
+transcription/audio assessment and final evaluation separately so it can show
+the real pipeline stage and retry evaluation without uploading audio again.
+Recordings are not persisted by the backend. GPT-4o Transcribe produces the
+text, GPT-Audio-1.5 listens for pronunciation, rhythm, intelligibility, and
+naturalness, and GPT-5.6 Sol produces structured IELTS feedback.
 Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
 
@@ -36,19 +39,18 @@ python3 -m venv .venv
 The repository-root `.env` is loaded by both the app and systemd unit:
 
 ```dotenv
-ELEVENLABS_API_KEY=...
-OPENROUTER_API_KEY=...
+OPENAI_API_KEY=...
 
 # Optional overrides
-OPENROUTER_MODEL=~google/gemini-pro-latest
-OPENROUTER_REASONING_EFFORT=low
-ELEVENLABS_STT_MODEL=scribe_v2
+OPENAI_TEXT_MODEL=gpt-5.6-sol
+OPENAI_TEXT_REASONING_EFFORT=low
+OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
+OPENAI_AUDIO_MODEL=gpt-audio-1.5
 ```
 
-On the current server, the unit sets `CREDENTIALS_ENV_FILE` to the debate
-project's existing `.env`. FastAPI selectively reads only
-`ELEVENLABS_API_KEY` and `OPENROUTER_API_KEY` from it when this repository has
-no local values; unrelated credentials are not imported into the process.
+A repository-root `.env` supplies the server-only OpenAI key without exposing
+it to the statically exported site. `CREDENTIALS_ENV_FILE` remains supported
+for a separately managed credential file.
 
 For local development:
 

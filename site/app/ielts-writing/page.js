@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata = {
   title: "IELTS writing · daily.chebakov.me",
   description:
-    "Timed IELTS Academic writing practice with band-7.5-focused feedback.",
+    "Timed IELTS Academic and General Training writing with band-7.5 feedback.",
 };
 
 export default function IeltsWritingPage() {
@@ -14,7 +14,7 @@ export default function IeltsWritingPage() {
         <header className="site-header">
           <h1 className="site-title">IELTS writing</h1>
           <p className="site-subtitle">
-            Academic Task 1 &amp; 2 · target band 7.5
+            Academic &amp; General Training · target band 7.5
           </p>
         </header>
         <IeltsWriting />

@@ -28,16 +28,16 @@ export default function HomePage() {
           <Link className="tool-card" href="/ielts-speaking/">
             <span className="tool-title">IELTS speaking</span>
             <span className="tool-description">
-              Timed 25-second and two-minute speaking exercises with fresh
-              topics, voice recording, transcription and feedback aimed at band
-              7.5.
+              All three speaking parts with fresh topics, automatic recording,
+              transcription, pronunciation and naturalness feedback aimed at
+              band 7.5.
             </span>
           </Link>
           <Link className="tool-card" href="/ielts-writing/">
             <span className="tool-title">IELTS writing</span>
             <span className="tool-description">
-              Timed Academic Task 1 and Task 2 practice with generated
-              questions, live word counting and feedback aimed at band 7.5.
+              Academic visuals, General Training letters and every common Task 2
+              essay form, with timed feedback aimed at band 7.5.
             </span>
           </Link>
         </div>

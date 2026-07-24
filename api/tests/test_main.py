@@ -15,6 +15,29 @@ sys.path.insert(0, str(API_DIR))
 import main  # noqa: E402
 
 
+def writing_topic_result(**overrides):
+    result = {
+        "title": "Public transport",
+        "prompt": (
+            "The visual shows changes in public transport use. Summarise the main "
+            "features and make comparisons where relevant."
+        ),
+        "questionType": "Academic Writing Task 1",
+        "visualType": "none",
+        "visualTitle": "",
+        "tableColumns": [],
+        "tableRows": [],
+        "chartCategories": [],
+        "chartSeries": [],
+        "processSteps": [],
+        "mapBefore": [],
+        "mapAfter": [],
+        "bulletPoints": [],
+    }
+    result.update(overrides)
+    return result
+
+
 class DailyApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -54,7 +77,7 @@ class DailyApiTests(unittest.TestCase):
             "prompt": "What do you usually enjoy doing at the weekend, and why?",
             "bulletPoints": ["This should be removed"],
         }
-        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
             response = self.client.post(
                 "/api/ielts/topic", json={"mode": "short", "recentTopics": []}
             )
@@ -67,52 +90,54 @@ class DailyApiTests(unittest.TestCase):
             "prompt": "Describe a useful object you own.",
             "bulletPoints": ["what it is"],
         }
-        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
             response = self.client.post(
                 "/api/ielts/topic", json={"mode": "long", "recentTopics": []}
             )
         self.assertEqual(response.status_code, 502)
 
-    def test_writing_task_two_discards_table_data(self) -> None:
-        generated = {
-            "title": "Working from home",
-            "prompt": (
+    def test_writing_essay_discards_visual_data(self) -> None:
+        generated = writing_topic_result(
+            title="Working from home",
+            prompt=(
                 "Some people believe working from home benefits both employees and "
                 "employers. To what extent do you agree or disagree?"
             ),
-            "questionType": "Opinion",
-            "tableTitle": "This should be removed",
-            "tableColumns": ["A", "B", "C"],
-            "tableRows": [["1", "2", "3"]] * 3,
-        }
-        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+            questionType="Opinion",
+            visualType="table",
+            visualTitle="This should be removed",
+            tableColumns=["A", "B", "C"],
+            tableRows=[["1", "2", "3"]] * 3,
+        )
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
             response = self.client.post(
                 "/api/ielts/writing/topic",
-                json={"mode": "task2", "recentTopics": []},
+                json={"mode": "essay_opinion", "recentTopics": []},
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["tableRows"], [])
 
     def test_writing_task_one_requires_rectangular_table(self) -> None:
-        generated = {
-            "title": "Transport use",
-            "prompt": (
+        generated = writing_topic_result(
+            title="Transport use",
+            prompt=(
                 "The table shows transport use. Summarise the main features and "
                 "make comparisons where relevant."
             ),
-            "questionType": "Academic table report",
-            "tableTitle": "Journeys by mode (%)",
-            "tableColumns": ["Mode", "2000", "2025"],
-            "tableRows": [
+            questionType="Academic table report",
+            visualType="table",
+            visualTitle="Journeys by mode (%)",
+            tableColumns=["Mode", "2000", "2025"],
+            tableRows=[
                 ["Car", "50", "40"],
                 ["Bus", "20"],
                 ["Rail", "30", "40"],
             ],
-        }
-        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+        )
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
             response = self.client.post(
                 "/api/ielts/writing/topic",
-                json={"mode": "task1", "recentTopics": []},
+                json={"mode": "academic_table", "recentTopics": []},
             )
         self.assertEqual(response.status_code, 502)
 
@@ -148,15 +173,22 @@ class DailyApiTests(unittest.TestCase):
         }
         topic = {
             "id": "test-topic",
-            "mode": "task2",
+            "mode": "essay_opinion",
             "title": "Public transport",
             "prompt": "Should cities make public transport free? Discuss.",
             "questionType": "Opinion",
-            "tableTitle": "",
+            "visualType": "none",
+            "visualTitle": "",
             "tableColumns": [],
             "tableRows": [],
+            "chartCategories": [],
+            "chartSeries": [],
+            "processSteps": [],
+            "mapBefore": [],
+            "mapAfter": [],
+            "bulletPoints": [],
         }
-        with patch.object(main, "_openrouter_json", AsyncMock(return_value=generated)):
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
             response = self.client.post(
                 "/api/ielts/writing/evaluate",
                 json={
@@ -168,31 +200,66 @@ class DailyApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["wordCount"], 7)
 
-    def test_delivery_stats_use_transcript_and_word_timings(self) -> None:
+    def test_delivery_stats_use_transcript_and_recording_duration(self) -> None:
         stats = main._calculate_delivery_stats(
-            {
-                "text": "I enjoy reading because it helps me relax.",
-                "words": [
-                    {"type": "word", "start": 0.2, "end": 0.5},
-                    {"type": "word", "start": 1.5, "end": 1.8},
-                    {"type": "word", "start": 4.1, "end": 4.3},
-                ],
-            },
+            "I enjoy reading because it helps me relax.",
             5.0,
         )
         self.assertEqual(stats["wordCount"], 8)
         self.assertEqual(stats["wordsPerMinute"], 96)
-        self.assertEqual(stats["pauseCount"], 2)
-        self.assertEqual(stats["longPauseCount"], 1)
+        self.assertEqual(stats["recordedSeconds"], 5.0)
 
     def test_transcription_rejects_non_audio_body_before_provider_call(self) -> None:
-        with patch.object(main, "ELEVENLABS_API_KEY", "test-key"):
+        with patch.object(main, "OPENAI_API_KEY", "test-key"):
             response = self.client.post(
                 "/api/ielts/transcribe",
                 content=b"not audio" * 100,
                 headers={"Content-Type": "text/plain"},
             )
         self.assertEqual(response.status_code, 415)
+
+    def test_transcription_combines_text_and_audio_delivery(self) -> None:
+        audio_assessment = main.AudioDeliveryAssessment.model_validate(
+            {
+                "pronunciation": {"band": 7.5, "feedback": "Clear articulation."},
+                "naturalness": {"band": 7, "feedback": "Mostly natural pacing."},
+                "rhythmAndStress": {
+                    "band": 7,
+                    "feedback": "Key words usually receive stress.",
+                },
+                "intelligibility": {
+                    "band": 8,
+                    "feedback": "Easy to understand.",
+                },
+                "summary": "Clear, natural, and intelligible overall.",
+            }
+        )
+        with (
+            patch.object(main, "OPENAI_API_KEY", "test-key"),
+            patch.object(
+                main,
+                "_openai_transcribe",
+                AsyncMock(return_value="I enjoy learning languages."),
+            ),
+            patch.object(
+                main,
+                "_openai_audio_assessment",
+                AsyncMock(return_value=audio_assessment),
+            ),
+        ):
+            response = self.client.post(
+                "/api/ielts/transcribe",
+                content=b"RIFF" + b"\0" * 512,
+                headers={
+                    "Content-Type": "audio/wav",
+                    "X-Recording-Duration-Ms": "5000",
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["transcript"], "I enjoy learning languages.")
+        self.assertEqual(payload["audioAssessment"]["pronunciation"]["band"], 7.5)
+        self.assertEqual(payload["stats"]["wordCount"], 4)
 
     def test_provider_rate_limit_returns_retry_after(self) -> None:
         request = type(

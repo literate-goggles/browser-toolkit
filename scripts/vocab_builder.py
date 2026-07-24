@@ -12,7 +12,7 @@ Common:
   --source-id ID        id embedded in the file so the extension can distinguish
                         multiple sources
   --source-name "Name"  human-readable name shown in the popup dropdown
-  --model MODEL         override the OpenRouter model (default: Claude Sonnet 4.5)
+  --model MODEL         override the OpenAI model (default: GPT-5.6 Sol)
 
 Backfill mode (--backfill-examples) only adds "examples" to existing items.
 """
@@ -34,8 +34,8 @@ from pypdf import PdfReader
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = "anthropic/claude-sonnet-4.5"
+OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
+DEFAULT_MODEL = "gpt-5.6-sol"
 BATCH_SIZE = 40
 MAX_TEXT_CHARS = 45_000
 CHUNK_SIZE = 30_000
@@ -308,7 +308,7 @@ def build_examples_prompt(words: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter
+# OpenAI
 # ---------------------------------------------------------------------------
 
 def _extract_json(content: str) -> dict:
@@ -327,25 +327,44 @@ def _extract_json(content: str) -> dict:
     return json.loads(text)
 
 
-def call_openrouter(messages: list[dict], api_key: str, model: str) -> dict:
+def _response_text(payload: dict) -> str:
+    direct = payload.get("output_text")
+    if isinstance(direct, str) and direct.strip():
+        return direct
+    parts: list[str] = []
+    for item in payload.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for content in item.get("content") or []:
+            if (
+                isinstance(content, dict)
+                and content.get("type") == "output_text"
+                and isinstance(content.get("text"), str)
+            ):
+                parts.append(content["text"])
+    return "".join(parts)
+
+
+def call_openai(messages: list[dict], api_key: str, model: str) -> dict:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://github.com/literate-goggles/browser-toolkit",
-        "X-Title": "LiterateGoggles Vocab Builder",
     }
     body = {
         "model": model,
-        "messages": messages,
-        "temperature": 0.6,
-        "response_format": {"type": "json_object"},
+        "input": messages,
+        "reasoning": {"effort": "low"},
+        "text": {"format": {"type": "json_object"}},
+        "max_output_tokens": 12_000,
+        "store": False,
     }
-    resp = requests.post(OPENROUTER_URL, headers=headers, json=body, timeout=240)
+    resp = requests.post(
+        OPENAI_RESPONSES_URL, headers=headers, json=body, timeout=240
+    )
     if resp.status_code != 200:
-        raise RuntimeError(f"OpenRouter error {resp.status_code}: {resp.text[:500]}")
+        raise RuntimeError(f"OpenAI error {resp.status_code}: {resp.text[:500]}")
     payload = resp.json()
-    content = payload["choices"][0]["message"]["content"]
-    return _extract_json(content)
+    return _extract_json(_response_text(payload))
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +478,7 @@ def backfill_examples(
             f"asking for examples on {len(batch)} words..."
         )
         try:
-            data = call_openrouter(build_examples_prompt(batch), api_key, model)
+            data = call_openai(build_examples_prompt(batch), api_key, model)
         except Exception as exc:
             print(f"      batch failed: {exc}", file=sys.stderr)
             continue
@@ -542,7 +561,7 @@ def generate_from_pdf(
             want = min(BATCH_SIZE, remaining_chunk)
             print(f"      batch {batch_num}: asking for {want} items...")
             try:
-                data = call_openrouter(
+                data = call_openai(
                     build_pdf_prompt(chunk, want, sorted(seen)), api_key, model
                 )
             except Exception as exc:
@@ -583,7 +602,7 @@ def generate_from_wordlist(
             f"{len(batch)} words..."
         )
         try:
-            data = call_openrouter(build_wordlist_prompt(batch), api_key, model)
+            data = call_openai(build_wordlist_prompt(batch), api_key, model)
         except Exception as exc:
             print(f"      batch {batch_num} failed: {exc}", file=sys.stderr)
             time.sleep(2)
@@ -629,9 +648,9 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("ERROR: OPENROUTER_API_KEY missing from .env", file=sys.stderr)
+        print("ERROR: OPENAI_API_KEY missing from .env", file=sys.stderr)
         return 1
 
     out_path = (ROOT / args.out).resolve()

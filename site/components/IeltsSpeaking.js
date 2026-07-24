@@ -19,11 +19,18 @@ const MODES = {
     description:
       "Develop a clear story or description around the cue-card points.",
   },
+  discussion: {
+    label: "Discussion",
+    part: "Part 3 style",
+    seconds: 60,
+    duration: "1 min",
+    description:
+      "Explain, compare or speculate about a broader issue and support your view.",
+  },
 };
 
 const PIPELINE_PHASES = ["transcribing", "evaluating", "complete"];
 const RECENT_TOPICS_KEY = "daily-ielts-recent-topics";
-const PREPARATION_MS = 5_000;
 
 function formatTime(milliseconds) {
   const safe = Math.max(0, milliseconds);
@@ -41,6 +48,70 @@ function supportedMimeType() {
     "audio/ogg;codecs=opus",
   ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function encodeWav(audioBuffer) {
+  const samples = audioBuffer.getChannelData(0);
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeText = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  };
+
+  writeText(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeText(8, "WAVE");
+  writeText(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, audioBuffer.sampleRate, true);
+  view.setUint32(28, audioBuffer.sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  for (let index = 0; index < samples.length; index += 1) {
+    const sample = Math.max(-1, Math.min(1, samples[index]));
+    view.setInt16(
+      44 + index * 2,
+      sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+      true
+    );
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+async function convertToAssessmentWav(blob) {
+  if (blob.type.split(";", 1)[0] === "audio/wav") return blob;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  const OfflineAudioContext =
+    window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  if (!AudioContext || !OfflineAudioContext) {
+    throw new Error(
+      "This browser cannot prepare the recording for audio assessment."
+    );
+  }
+
+  const decodingContext = new AudioContext();
+  try {
+    const decoded = await decodingContext.decodeAudioData(
+      await blob.arrayBuffer()
+    );
+    const sampleRate = 16_000;
+    const frameCount = Math.max(1, Math.ceil(decoded.duration * sampleRate));
+    const renderingContext = new OfflineAudioContext(1, frameCount, sampleRate);
+    const source = renderingContext.createBufferSource();
+    source.buffer = decoded;
+    source.connect(renderingContext.destination);
+    source.start();
+    return encodeWav(await renderingContext.startRendering());
+  } finally {
+    await decodingContext.close().catch(() => {});
+  }
 }
 
 function recentTopics() {
@@ -116,7 +187,6 @@ export default function IeltsSpeaking() {
   const [topic, setTopic] = useState(null);
   const [phase, setPhase] = useState("idle");
   const [remainingMs, setRemainingMs] = useState(MODES.short.seconds * 1000);
-  const [preparationMs, setPreparationMs] = useState(PREPARATION_MS);
   const [micLevel, setMicLevel] = useState(0);
   const [audioUrl, setAudioUrl] = useState(null);
   const [transcription, setTranscription] = useState(null);
@@ -133,13 +203,13 @@ export default function IeltsSpeaking() {
   const audioUrlRef = useRef(null);
   const recordingBlobRef = useRef(null);
   const sessionRef = useRef(null);
+  const startRecordingRef = useRef(null);
   const mountedRef = useRef(true);
 
   const modeConfig = MODES[mode];
   const isBusy = [
     "generating",
     "requesting-mic",
-    "preparing",
     "recording",
     "transcribing",
     "evaluating",
@@ -214,6 +284,7 @@ export default function IeltsSpeaking() {
             topic: session.topic,
             transcript: speechData.transcript,
             stats: speechData.stats,
+            audioAssessment: speechData.audioAssessment,
           }),
         });
         if (!evaluationResponse.ok) {
@@ -237,10 +308,33 @@ export default function IeltsSpeaking() {
 
   const generateTopic = useCallback(async () => {
     if (isBusy) return;
-    setPhase("generating");
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setError(
+        "This browser does not support microphone recording. Try current Chrome, Safari, or Firefox over HTTPS."
+      );
+      setErrorKind("recording");
+      setPhase("error");
+      return;
+    }
+    let preparedStream = null;
+    resetAttempt();
     setError(null);
     setErrorKind(null);
     try {
+      setPhase("requesting-mic");
+      preparedStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
+      if (!mountedRef.current) {
+        preparedStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      setPhase("generating");
       const response = await fetch("/api/ielts/topic", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,14 +344,20 @@ export default function IeltsSpeaking() {
       const nextTopic = await response.json();
       if (!mountedRef.current) return;
       rememberTopic(nextTopic.prompt);
-      resetAttempt();
       setTopic(nextTopic);
       setRemainingMs(MODES[mode].seconds * 1000);
-      setPhase("ready");
+      await startRecordingRef.current?.(nextTopic, preparedStream);
+      preparedStream = null;
     } catch (topicError) {
+      preparedStream?.getTracks().forEach((track) => track.stop());
       if (!mountedRef.current) return;
-      setError(topicError.message || "Could not generate a topic.");
-      setErrorKind("topic");
+      const microphoneDenied = topicError?.name === "NotAllowedError";
+      setError(
+        microphoneDenied
+          ? "Microphone access was denied. Allow it in the browser's site settings and try again."
+          : topicError.message || "Could not generate a topic."
+      );
+      setErrorKind(microphoneDenied ? "recording" : "topic");
       setPhase("error");
     }
   }, [isBusy, mode, resetAttempt]);
@@ -285,138 +385,146 @@ export default function IeltsSpeaking() {
     measure();
   }, []);
 
-  const startRecording = useCallback(async () => {
-    if (!topic || isBusy) return;
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setError(
-        "This browser does not support microphone recording. Try current Chrome, Safari, or Firefox over HTTPS."
-      );
-      setErrorKind("recording");
-      setPhase("error");
-      return;
-    }
-
-    resetAttempt();
-    setPhase("requesting-mic");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-      if (!mountedRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      streamRef.current = stream;
-      const mimeType = supportedMimeType();
-      const recorder = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        audioBitsPerSecond: 48_000,
-      });
-      recorderRef.current = recorder;
-      chunksRef.current = [];
-      const session = {
-        topic,
-        limitSeconds: modeConfig.seconds,
-        recordedSeconds: modeConfig.seconds,
-        startedAt: null,
-      };
-      sessionRef.current = session;
-
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunksRef.current.push(event.data);
-      };
-      recorder.onerror = () => {
-        session.cancelled = true;
-        clearTimer();
-        closeInput();
+  const startRecording = useCallback(
+    async (selectedTopic = topic, preparedStream = null) => {
+      if (!selectedTopic || (isBusy && !preparedStream)) return;
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
         setError(
-          "The browser could not record the microphone. Please try again."
+          "This browser does not support microphone recording. Try current Chrome, Safari, or Firefox over HTTPS."
         );
         setErrorKind("recording");
         setPhase("error");
-      };
-      recorder.onstop = () => {
-        clearTimer();
-        closeInput();
-        if (session.cancelled) return;
-        const recordedSeconds = Math.max(
-          0.1,
-          Math.min(
-            session.limitSeconds,
-            (performance.now() - session.startedAt) / 1000
-          )
-        );
-        session.recordedSeconds = recordedSeconds;
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || mimeType || "application/octet-stream",
-        });
-        recordingBlobRef.current = blob;
-        const nextAudioUrl = URL.createObjectURL(blob);
-        audioUrlRef.current = nextAudioUrl;
-        setAudioUrl(nextAudioUrl);
-        void runPipeline(blob, session);
-      };
+        return;
+      }
 
-      await startMeter(stream);
-      const preparationStartedAt = performance.now();
-      setPreparationMs(PREPARATION_MS);
-      setPhase("preparing");
-      timerRef.current = window.setInterval(() => {
-        const preparationLeft =
-          PREPARATION_MS - (performance.now() - preparationStartedAt);
-        setPreparationMs(Math.max(0, preparationLeft));
-        if (preparationLeft <= 0) {
+      resetAttempt();
+      setPhase("requesting-mic");
+      try {
+        const stream =
+          preparedStream ||
+          (await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          }));
+        if (!mountedRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        streamRef.current = stream;
+        const mimeType = supportedMimeType();
+        const recorder = new MediaRecorder(stream, {
+          ...(mimeType ? { mimeType } : {}),
+          audioBitsPerSecond: 48_000,
+        });
+        recorderRef.current = recorder;
+        chunksRef.current = [];
+        const session = {
+          topic: selectedTopic,
+          limitSeconds: modeConfig.seconds,
+          recordedSeconds: modeConfig.seconds,
+          startedAt: null,
+        };
+        sessionRef.current = session;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunksRef.current.push(event.data);
+        };
+        recorder.onerror = () => {
+          session.cancelled = true;
           clearTimer();
+          closeInput();
+          setError(
+            "The browser could not record the microphone. Please try again."
+          );
+          setErrorKind("recording");
+          setPhase("error");
+        };
+        recorder.onstop = async () => {
+          clearTimer();
+          closeInput();
+          if (session.cancelled) return;
+          const recordedSeconds = Math.max(
+            0.1,
+            Math.min(
+              session.limitSeconds,
+              (performance.now() - session.startedAt) / 1000
+            )
+          );
+          session.recordedSeconds = recordedSeconds;
+          const playbackBlob = new Blob(chunksRef.current, {
+            type: recorder.mimeType || mimeType || "application/octet-stream",
+          });
+          const nextAudioUrl = URL.createObjectURL(playbackBlob);
+          audioUrlRef.current = nextAudioUrl;
+          setAudioUrl(nextAudioUrl);
+          setPhase("transcribing");
           try {
-            session.startedAt = performance.now();
-            recorder.start(1_000);
-            setRemainingMs(modeConfig.seconds * 1000);
-            setPhase("recording");
-            timerRef.current = window.setInterval(() => {
-              const speakingLeft =
-                modeConfig.seconds * 1000 -
-                (performance.now() - session.startedAt);
-              setRemainingMs(Math.max(0, speakingLeft));
-              if (speakingLeft <= 0) {
-                clearTimer();
-                if (recorder.state !== "inactive") recorder.stop();
-              }
-            }, 100);
-          } catch (startError) {
-            session.cancelled = true;
-            closeInput();
-            setError(startError?.message || "Could not start the recording.");
-            setErrorKind("recording");
+            const assessmentBlob = await convertToAssessmentWav(playbackBlob);
+            if (!mountedRef.current || session.cancelled) return;
+            recordingBlobRef.current = assessmentBlob;
+            void runPipeline(assessmentBlob, session);
+          } catch (conversionError) {
+            if (!mountedRef.current) return;
+            setError(
+              conversionError?.message ||
+                "Could not prepare the recording for evaluation."
+            );
+            setErrorKind("pipeline");
             setPhase("error");
           }
+        };
+
+        await startMeter(stream);
+        try {
+          session.startedAt = performance.now();
+          recorder.start(1_000);
+          setRemainingMs(modeConfig.seconds * 1000);
+          setPhase("recording");
+          timerRef.current = window.setInterval(() => {
+            const speakingLeft =
+              modeConfig.seconds * 1000 -
+              (performance.now() - session.startedAt);
+            setRemainingMs(Math.max(0, speakingLeft));
+            if (speakingLeft <= 0) {
+              clearTimer();
+              if (recorder.state !== "inactive") recorder.stop();
+            }
+          }, 100);
+        } catch (startError) {
+          session.cancelled = true;
+          closeInput();
+          setError(startError?.message || "Could not start the recording.");
+          setErrorKind("recording");
+          setPhase("error");
         }
-      }, 100);
-    } catch (recordingError) {
-      clearTimer();
-      closeInput();
-      const message =
-        recordingError?.name === "NotAllowedError"
-          ? "Microphone access was denied. Allow it in the browser's site settings and try again."
-          : recordingError?.message || "Could not start the microphone.";
-      setError(message);
-      setErrorKind("recording");
-      setPhase("error");
-    }
-  }, [
-    clearTimer,
-    closeInput,
-    isBusy,
-    modeConfig.seconds,
-    resetAttempt,
-    runPipeline,
-    startMeter,
-    topic,
-  ]);
+      } catch (recordingError) {
+        clearTimer();
+        closeInput();
+        const message =
+          recordingError?.name === "NotAllowedError"
+            ? "Microphone access was denied. Allow it in the browser's site settings and try again."
+            : recordingError?.message || "Could not start the microphone.";
+        setError(message);
+        setErrorKind("recording");
+        setPhase("error");
+      }
+    },
+    [
+      clearTimer,
+      closeInput,
+      isBusy,
+      modeConfig.seconds,
+      resetAttempt,
+      runPipeline,
+      startMeter,
+      topic,
+    ]
+  );
+  startRecordingRef.current = startRecording;
 
   const stopRecording = useCallback(() => {
     clearTimer();
@@ -475,6 +583,7 @@ export default function IeltsSpeaking() {
             ["Fluency & coherence", evaluation.criteria.fluencyAndCoherence],
             ["Lexical resource", evaluation.criteria.lexicalResource],
             ["Grammar", evaluation.criteria.grammaticalRangeAndAccuracy],
+            ["Pronunciation", evaluation.criteria.pronunciation],
           ]
         : [],
     [evaluation]
@@ -505,6 +614,10 @@ export default function IeltsSpeaking() {
             </button>
           ))}
         </div>
+        <p className="writing-auto-start-note">
+          Microphone recording and the answer timer start immediately when the
+          generated question appears.
+        </p>
       </section>
 
       <section className="ielts-topic-card">
@@ -539,46 +652,19 @@ export default function IeltsSpeaking() {
             type="button"
             className="ielts-primary"
             onClick={generateTopic}
-            disabled={phase === "generating"}
+            disabled={isBusy}
           >
-            {phase === "generating"
-              ? "Generating…"
-              : `Generate ${modeConfig.duration} topic`}
+            {phase === "requesting-mic"
+              ? "Allow microphone…"
+              : phase === "generating"
+                ? "Generating…"
+                : `Generate ${modeConfig.duration} topic`}
           </button>
-        )}
-
-        {topic && phase === "ready" && (
-          <div className="ielts-topic-actions">
-            <button
-              type="button"
-              className="ielts-primary"
-              onClick={startRecording}
-            >
-              Start · 5 sec prep
-            </button>
-            <button
-              type="button"
-              className="ielts-secondary"
-              onClick={generateTopic}
-            >
-              New topic
-            </button>
-          </div>
         )}
 
         {phase === "requesting-mic" && (
           <div className="ielts-status" role="status">
             Waiting for microphone permission…
-          </div>
-        )}
-
-        {phase === "preparing" && (
-          <div className="ielts-preparation" aria-live="assertive">
-            <span className="ielts-section-label">Read the topic</span>
-            <strong>{Math.max(1, Math.ceil(preparationMs / 1000))}</strong>
-            <p>
-              Recording starts automatically when the countdown reaches zero.
-            </p>
           </div>
         )}
 
@@ -610,7 +696,9 @@ export default function IeltsSpeaking() {
         <section className="ielts-processing-card">
           {pipelineVisible && <Pipeline phase={phase} />}
           {phase === "transcribing" && (
-            <p role="status">ElevenLabs is transcribing your recording…</p>
+            <p role="status">
+              OpenAI is transcribing and listening to your delivery…
+            </p>
           )}
           {phase === "evaluating" && (
             <p role="status">Your IELTS coach is preparing feedback…</p>
@@ -642,7 +730,7 @@ export default function IeltsSpeaking() {
             <button
               type="button"
               className="ielts-secondary"
-              onClick={startRecording}
+              onClick={() => void startRecording()}
             >
               Try recording again
             </button>
@@ -687,7 +775,10 @@ export default function IeltsSpeaking() {
                 <strong>{stats.wordsPerMinute}</strong> wpm
               </span>
               <span>
-                <strong>{stats.pauseCount}</strong> notable pauses
+                <strong>
+                  {evaluation.deliveryAssessment.naturalness.band.toFixed(1)}
+                </strong>{" "}
+                naturalness
               </span>
               <span>
                 <strong>{stats.recordedSeconds.toFixed(1)}s</strong> recorded
@@ -706,6 +797,32 @@ export default function IeltsSpeaking() {
               </article>
             ))}
           </div>
+
+          <article className="ielts-feedback-card">
+            <h3>Voice delivery</h3>
+            <p>{evaluation.deliveryAssessment.summary}</p>
+            <div className="ielts-criteria-grid">
+              {[
+                ["Naturalness", evaluation.deliveryAssessment.naturalness],
+                [
+                  "Rhythm & stress",
+                  evaluation.deliveryAssessment.rhythmAndStress,
+                ],
+                [
+                  "Intelligibility",
+                  evaluation.deliveryAssessment.intelligibility,
+                ],
+              ].map(([label, criterion]) => (
+                <div className="ielts-criterion" key={label}>
+                  <div>
+                    <h3>{label}</h3>
+                    <strong>{criterion.band.toFixed(1)}</strong>
+                  </div>
+                  <p>{criterion.feedback}</p>
+                </div>
+              ))}
+            </div>
+          </article>
 
           <article className="ielts-feedback-card">
             <h3>What you said</h3>
@@ -753,20 +870,17 @@ export default function IeltsSpeaking() {
           </article>
 
           <p className="ielts-evaluation-note">
-            This practice estimate uses your transcript and timing.
-            Pronunciation is not scored because the evaluator does not receive
-            phonetic audio evidence.
+            This practice estimate combines the transcript, timing, and a direct
+            audio assessment. Naturalness is coaching feedback; pronunciation is
+            the official IELTS criterion. A clear non-native accent is not
+            penalized.
           </p>
 
           <div className="ielts-result-actions">
             <button
               type="button"
               className="ielts-primary"
-              onClick={() => {
-                resetAttempt();
-                setRemainingMs(modeConfig.seconds * 1000);
-                setPhase("ready");
-              }}
+              onClick={() => void startRecording()}
             >
               Try this topic again
             </button>

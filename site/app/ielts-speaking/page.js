@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata = {
   title: "IELTS speaking · daily.chebakov.me",
   description:
-    "Timed IELTS speaking practice with transcription and band-focused feedback.",
+    "All three IELTS speaking parts with audio-aware band-7.5 feedback.",
 };
 
 export default function IeltsSpeakingPage() {
@@ -13,7 +13,9 @@ export default function IeltsSpeakingPage() {
       <main className="page-main ielts-main">
         <header className="site-header">
           <h1 className="site-title">IELTS speaking</h1>
-          <p className="site-subtitle">Timed practice · target band 7.5</p>
+          <p className="site-subtitle">
+            Parts 1, 2 &amp; 3 · audio-aware feedback · target band 7.5
+          </p>
         </header>
         <IeltsSpeaking />
         <Link className="back-link" href="/">
