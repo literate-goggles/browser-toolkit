@@ -951,6 +951,29 @@ export default function IeltsWriting() {
             <p>{evaluation.targetFocus}</p>
           </article>
 
+          <article className="ielts-feedback-card writing-rewrite-card">
+            <div className="writing-rewrite-heading">
+              <div>
+                <span className="ielts-section-label">
+                  Minimal-change reference
+                </span>
+                <h3>Rewritten for band 7.5</h3>
+              </div>
+              {evaluation.attemptId && (
+                <span className="writing-saved-status">
+                  Saved to progress history
+                </span>
+              )}
+            </div>
+            <p className="writing-rewrite-note">
+              Your ideas and structure are preserved; only changes needed to
+              reach the target are made.
+            </p>
+            <p className="writing-response-copy">
+              {evaluation.rewrittenEssay}
+            </p>
+          </article>
+
           <div className="ielts-result-actions">
             <button
               type="button"

@@ -1806,6 +1806,41 @@ button {
     serif !important;
 }
 
+.writing-rewrite-card {
+  border-color: rgba(37, 99, 235, 0.3);
+  background:
+    linear-gradient(145deg, rgba(37, 99, 235, 0.045), transparent 42%),
+    var(--card-background);
+}
+
+.writing-rewrite-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.writing-rewrite-heading h3 {
+  margin-top: 4px;
+  font-size: 17px;
+}
+
+.writing-saved-status {
+  flex: 0 0 auto;
+  border: 1px solid rgba(22, 163, 74, 0.24);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.09);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.writing-rewrite-note {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
 @media (max-width: 620px) {
   .writing-mode-summary {
     grid-template-columns: 1fr;
@@ -1823,6 +1858,10 @@ button {
 
   .writing-pie {
     width: min(230px, 70vw);
+  }
+
+  .writing-rewrite-heading {
+    flex-direction: column;
   }
 
   .writing-maps {

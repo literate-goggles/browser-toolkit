@@ -22,7 +22,7 @@ IELTS pipelines.
 | `POST` | `/api/ielts/transcribe` | Transcribe audio and assess audible delivery with OpenAI |
 | `POST` | `/api/ielts/evaluate` | Combine transcript and audio evidence into band-7.5 feedback |
 | `POST` | `/api/ielts/writing/topic` | Generate Academic visuals, General Training letters, or Task 2 essays |
-| `POST` | `/api/ielts/writing/evaluate` | Evaluate writing against four IELTS criteria and the 7.5 target |
+| `POST` | `/api/ielts/writing/evaluate` | Evaluate, minimally rewrite for band 7.5, and save the completed attempt |
 
 The browser converts its recording to 16 kHz mono WAV, then calls
 transcription/audio assessment and final evaluation separately so it can show
@@ -32,6 +32,15 @@ text, GPT-Audio-1.5 listens for pronunciation, rhythm, intelligibility, and
 naturalness, and GPT-5.6 Sol produces structured IELTS feedback.
 Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
+
+Every successful writing evaluation is durably stored in
+`api/ielts_writing.sqlite3`. Each row contains the complete task, original
+response, elapsed time, word count, four criterion bands, full structured
+feedback, and the minimally changed band-7.5 rewrite. Retry requests for the
+same topic and unchanged response update the same deterministic attempt rather
+than creating duplicates. Essay contents are not exposed through a public
+history endpoint; the stored structured fields are ready for a future private
+progress view.
 
 The daily digest fetches both Wikipedia date pages, Hugging Face Daily Papers,
 the Hugging Face blog, and alphaXiv. GPT-5.6 Sol selects and writes
@@ -134,6 +143,7 @@ OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 OPENAI_AUDIO_MODEL=gpt-audio-1.5
 DAILY_TIMEZONE=UTC
 DAILY_TIMERS_DB_FILE=api/daily_timers.sqlite3
+IELTS_WRITING_DB_FILE=api/ielts_writing.sqlite3
 CHESS_COM_USERNAME=unlimited_bezdarnost
 CHESS_REPERTOIRE_FILE=api/chess_repertoire.json
 ```
@@ -166,4 +176,5 @@ sudo journalctl -u daily-vocab-bans -f
 Runtime bans remain in `api/bans.json`; the daily digest lives in
 `api/daily.json`; the math set lives in `api/math_daily.json`; and chess drill
 state lives in `api/chess_drills.json`. Timer history lives in
-`api/daily_timers.sqlite3`. All runtime files are excluded from git.
+`api/daily_timers.sqlite3`; completed writing attempts live in
+`api/ielts_writing.sqlite3`. All runtime files are excluded from git.

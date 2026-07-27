@@ -16,7 +16,10 @@ source of truth for the features I want on the site.
 ## IELTS
 
 Keep the IELTS vocabulary, speaking, and writing tools. They are an important
-part of the routine and should remain focused on practical progress.
+part of the routine and should remain focused on practical progress. Save every
+successfully evaluated writing response, its task, timing, criterion bands, and
+full feedback in durable history. End writing feedback with a band-7.5 rewrite
+that preserves my ideas and structure and changes only what is needed.
 
 ## Daily focus timers
 

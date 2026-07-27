@@ -36,6 +36,11 @@ OpenAI GPT-5.6 Sol through the Responses API; the problem studio uses high
 reasoning effort and keeps its own non-repetition history in
 `api/math_daily.json`. Provider credentials remain server-side.
 
+Successfully evaluated IELTS writing attempts are saved in
+`api/ielts_writing.sqlite3`, including the original response, timing, criterion
+scores, feedback, and a minimal-change band-7.5 rewrite. This durable structure
+is ready for future progress charts without exposing essay history publicly.
+
 See [api/README.md](./api/README.md) for local and production setup.
 
 ## What it can do today

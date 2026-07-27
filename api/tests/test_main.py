@@ -43,6 +43,7 @@ class DailyApiTests(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.original_data_file = main.BANS_DATA_FILE
         self.original_timer_service = main.daily_timer_service
+        self.original_writing_progress_service = main.writing_progress_service
         main.BANS_DATA_FILE = Path(self.temporary_directory.name) / "bans.json"
         main.daily_timer_service = main.DailyTimerService(
             database_file=(
@@ -50,12 +51,18 @@ class DailyApiTests(unittest.TestCase):
             ),
             timezone_name="UTC",
         )
+        main.writing_progress_service = main.WritingProgressService(
+            database_file=(
+                Path(self.temporary_directory.name) / "ielts_writing.sqlite3"
+            ),
+        )
         main._provider_requests.clear()
         self.client = TestClient(main.app)
 
     def tearDown(self) -> None:
         main.BANS_DATA_FILE = self.original_data_file
         main.daily_timer_service = self.original_timer_service
+        main.writing_progress_service = self.original_writing_progress_service
         self.temporary_directory.cleanup()
 
     def test_vocab_ban_lifecycle_remains_compatible(self) -> None:
@@ -196,6 +203,10 @@ class DailyApiTests(unittest.TestCase):
             "targetStatus": "on track",
             "targetFocus": "Improve precision in supporting examples.",
             "wordCount": 999,
+            "rewrittenEssay": (
+                "Public transport should be free for everyone because it would "
+                "improve access and reduce congestion."
+            ),
         }
         topic = {
             "id": "test-topic",
@@ -225,6 +236,8 @@ class DailyApiTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["wordCount"], 7)
+        self.assertTrue(response.json()["attemptId"].startswith("writing-"))
+        self.assertEqual(len(main.writing_progress_service.summaries()), 1)
 
     def test_delivery_stats_use_transcript_and_recording_duration(self) -> None:
         stats = main._calculate_delivery_stats(

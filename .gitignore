@@ -26,6 +26,9 @@ api/chess_drills.json
 api/daily_timers.sqlite3
 api/daily_timers.sqlite3-shm
 api/daily_timers.sqlite3-wal
+api/ielts_writing.sqlite3
+api/ielts_writing.sqlite3-shm
+api/ielts_writing.sqlite3-wal
 api/resources/math_sources/*
 !api/resources/math_sources/.gitkeep
 
