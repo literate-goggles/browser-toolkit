@@ -42,12 +42,20 @@ class DailyApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.original_data_file = main.BANS_DATA_FILE
+        self.original_timer_service = main.daily_timer_service
         main.BANS_DATA_FILE = Path(self.temporary_directory.name) / "bans.json"
+        main.daily_timer_service = main.DailyTimerService(
+            database_file=(
+                Path(self.temporary_directory.name) / "daily_timers.sqlite3"
+            ),
+            timezone_name="UTC",
+        )
         main._provider_requests.clear()
         self.client = TestClient(main.app)
 
     def tearDown(self) -> None:
         main.BANS_DATA_FILE = self.original_data_file
+        main.daily_timer_service = self.original_timer_service
         self.temporary_directory.cleanup()
 
     def test_vocab_ban_lifecycle_remains_compatible(self) -> None:
@@ -70,6 +78,24 @@ class DailyApiTests(unittest.TestCase):
     def test_invalid_vocab_source_is_rejected(self) -> None:
         response = self.client.post("/api/vocab/bans/not%20safe", json={"word": "x"})
         self.assertEqual(response.status_code, 400)
+
+    def test_daily_timer_start_is_server_enforced(self) -> None:
+        initial = self.client.get("/api/daily/timers")
+        started = self.client.post("/api/daily/timers/english-reading/start")
+        conflict = self.client.post("/api/daily/timers/russian-reading/start")
+
+        self.assertEqual(initial.status_code, 200)
+        self.assertEqual(
+            [activity["status"] for activity in initial.json()["activities"]],
+            ["available", "available"],
+        )
+        self.assertEqual(started.status_code, 200)
+        self.assertEqual(
+            started.json()["activities"][0]["status"],
+            "running",
+        )
+        self.assertEqual(conflict.status_code, 409)
+        self.assertIn("already running", conflict.json()["detail"])
 
     def test_short_topic_discards_accidental_cue_points(self) -> None:
         generated = {

@@ -106,6 +106,7 @@ class MathDailyDigest(StrictModel):
     date: str
     generatedAt: str
     timezone: str
+    sourceRevision: str = Field(pattern=r"^[0-9a-f]{16}$")
     subjects: list[MathSubjectPractice] = Field(min_length=1)
 
 
@@ -213,6 +214,9 @@ class DailyMathService:
             self.timezone_name = "UTC"
             self.timezone = ZoneInfo("UTC")
         self.json_generator = json_generator
+        self.source_revision = hashlib.sha256(
+            self.manifest_file.read_bytes()
+        ).hexdigest()[:16]
         self.sources = self._load_manifest()
         self.leetcode_catalog = self._load_leetcode_catalog()
         self._file_lock = threading.Lock()
@@ -329,6 +333,8 @@ class DailyMathService:
         current = state.get("current")
         if not isinstance(current, dict):
             return None
+        if current.get("sourceRevision") != self.source_revision:
+            return None
         for raw_subject in current.get("subjects") or []:
             if isinstance(raw_subject, dict):
                 self._migrate_subject_payload(raw_subject)
@@ -358,24 +364,84 @@ class DailyMathService:
         )
 
     def _source_context(self, source: dict[str, Any], target: date) -> str:
+        file_specs = [
+            item
+            for item in (source.get("files") or [])
+            if isinstance(item, dict) and item.get("filename")
+        ]
         text_parts: list[str] = []
-        for path in self._source_text_paths(source):
+        texts_by_source: dict[int, list[str]] = {}
+        for file_spec in file_specs:
+            path = self.resources_dir / f"{file_spec['filename']}.txt"
             try:
-                text_parts.append(path.read_text(encoding="utf-8"))
+                text = path.read_text(encoding="utf-8")
+                text_parts.append(text)
+                source_index = int(file_spec.get("sourceIndex", 0))
+                texts_by_source.setdefault(source_index, []).append(text)
             except OSError as exc:
                 print(f"[daily-math] source index {path.name} failed: {exc}", flush=True)
-        source_text = "\n".join(text_parts)
         topics = ", ".join(str(topic) for topic in source.get("topics") or [])
         prefix = (
             f"Book/topic outline: {topics}.\n"
             f"Source availability: {source['availability']}.\n"
         )
+
+        problem_sources = source.get("problemSources")
+        if (
+            source.get("problemSourcePolicy") == "one_problem_per_source"
+            and isinstance(problem_sources, list)
+            and problem_sources
+        ):
+            excerpt_limit = max(1_500, SOURCE_CONTEXT_LIMIT // len(problem_sources))
+            sections: list[str] = [prefix]
+            for index, book in enumerate(problem_sources):
+                if not isinstance(book, dict):
+                    continue
+                source_text = "\n".join(texts_by_source.get(index, []))
+                excerpt = self._source_excerpt(
+                    source_text,
+                    target=target,
+                    seed_key=f"{source['id']}:{index}",
+                    limit=excerpt_limit,
+                )
+                sections.append(
+                    "\n".join(
+                        [
+                            f'<book_reference index="{index + 1}">',
+                            f"Title: {book.get('title', '')}",
+                            f"Authors: {book.get('authors', '')}",
+                            f"Edition: {book.get('edition', '')}",
+                            f"Official URL: {book.get('sourceUrl', '')}",
+                            f"Material note: {book.get('materialNote', '')}",
+                            "Indexed excerpt:",
+                            excerpt or "[No readable local excerpt was available.]",
+                            "</book_reference>",
+                        ]
+                    )
+                )
+            return "\n\n".join(sections)
+
+        source_text = "\n".join(text_parts)
         if not source_text:
             return prefix
-        source_text = source_text.replace("\x00", " ")
-        if len(source_text) <= SOURCE_CONTEXT_LIMIT:
-            return prefix + source_text
+        return prefix + self._source_excerpt(
+            source_text,
+            target=target,
+            seed_key=str(source["id"]),
+            limit=SOURCE_CONTEXT_LIMIT,
+        )
 
+    @staticmethod
+    def _source_excerpt(
+        source_text: str,
+        *,
+        target: date,
+        seed_key: str,
+        limit: int,
+    ) -> str:
+        source_text = source_text.replace("\x00", " ")
+        if len(source_text) <= limit:
+            return source_text
         markers = [
             match.start()
             for match in re.finditer(
@@ -385,7 +451,7 @@ class DailyMathService:
         ]
         seed = int.from_bytes(
             hashlib.sha256(
-                f"{target.isoformat()}:{source['id']}".encode("utf-8")
+                f"{target.isoformat()}:{seed_key}".encode("utf-8")
             ).digest()[:8],
             "big",
         )
@@ -393,17 +459,22 @@ class DailyMathService:
             center = markers[seed % len(markers)]
         else:
             center = seed % len(source_text)
-        start = max(0, min(center - 1_000, len(source_text) - SOURCE_CONTEXT_LIMIT))
-        excerpt = source_text[start : start + SOURCE_CONTEXT_LIMIT]
-        return prefix + excerpt
+        lead = min(1_000, limit // 3)
+        start = max(0, min(center - lead, len(source_text) - limit))
+        return source_text[start : start + limit]
 
     def _pending_subjects(
         self, state: dict[str, Any], target: date
     ) -> dict[str, MathSubjectPractice]:
         pending = state.get("pending")
-        if not isinstance(pending, dict) or pending.get("date") != target.isoformat():
+        if (
+            not isinstance(pending, dict)
+            or pending.get("date") != target.isoformat()
+            or pending.get("sourceRevision") != self.source_revision
+        ):
             state["pending"] = {
                 "date": target.isoformat(),
+                "sourceRevision": self.source_revision,
                 "subjects": {},
             }
             return {}
@@ -516,6 +587,28 @@ class DailyMathService:
                 "\nSet pythonSolution to an empty string for every main problem "
                 "and every follow-up; this subject does not need code.\n"
             )
+        problem_sources = source.get("problemSources")
+        if (
+            source.get("problemSourcePolicy") == "one_problem_per_source"
+            and isinstance(problem_sources, list)
+            and len(problem_sources) == 3
+        ):
+            source_contract = (
+                "\nMulti-book source contract:\n"
+                "- Problem 1 (warm-up) must come from book_reference 1: "
+                f"{problem_sources[0].get('title', '')}.\n"
+                "- Problem 2 (core) must come from book_reference 2: "
+                f"{problem_sources[1].get('title', '')}.\n"
+                "- Problem 3 (stretch) must come from book_reference 3: "
+                f"{problem_sources[2].get('title', '')}.\n"
+                "- In sourceConnection, name the specific book used for that "
+                "problem. If its indexed material does not expose a complete "
+                "exercise, create the closest faithful source-grounded equivalent "
+                "and state this clearly. Never attribute invented wording as a "
+                "verbatim exercise.\n"
+            )
+        else:
+            source_contract = ""
         retry_note = ""
         async with semaphore:
             for attempt in range(2):
@@ -564,6 +657,7 @@ class DailyMathService:
                                 "Markdown code fences or unsupported LaTeX environments.\n"
                                 "- Do not repeat the historical topic keys below.\n\n"
                                 f"{algorithm_instructions}\n"
+                                f"{source_contract}\n"
                                 f"Historical topic keys:\n"
                                 f"{json.dumps(history[-PROMPT_HISTORY_LIMIT:], ensure_ascii=False)}"
                                 f"\n{retry_note}\n\n"
@@ -619,15 +713,34 @@ class DailyMathService:
                     )
                     continue
 
-                origins = [
-                    {
-                        "sourceType": "book",
-                        "sourceTitle": str(source["sourceTitle"]),
-                        "sourceUrl": str(source["sourceUrl"]),
-                        "sourceDifficulty": "",
-                    }
-                    for _ in generated.problems
-                ]
+                if (
+                    source.get("problemSourcePolicy") == "one_problem_per_source"
+                    and isinstance(problem_sources, list)
+                    and len(problem_sources) == len(generated.problems)
+                ):
+                    origins = [
+                        {
+                            "sourceType": "book",
+                            "sourceTitle": str(
+                                book.get("title") or source["sourceTitle"]
+                            ),
+                            "sourceUrl": str(
+                                book.get("sourceUrl") or source["sourceUrl"]
+                            ),
+                            "sourceDifficulty": "",
+                        }
+                        for book in problem_sources
+                    ]
+                else:
+                    origins = [
+                        {
+                            "sourceType": "book",
+                            "sourceTitle": str(source["sourceTitle"]),
+                            "sourceUrl": str(source["sourceUrl"]),
+                            "sourceDifficulty": "",
+                        }
+                        for _ in generated.problems
+                    ]
                 if leetcode_problems:
                     for index, entry in enumerate(leetcode_problems, start=1):
                         origins[index] = {
@@ -708,6 +821,7 @@ class DailyMathService:
             date=target.isoformat(),
             generatedAt=generated_at,
             timezone=self.timezone_name,
+            sourceRevision=self.source_revision,
             subjects=ordered_subjects,
         )
         for subject in ordered_subjects:
@@ -733,7 +847,11 @@ class DailyMathService:
         async with self._refresh_lock:
             state = self._load_state()
             current = self._current_digest(state)
-            if current and current.date == target.isoformat():
+            if (
+                current
+                and current.date == target.isoformat()
+                and current.sourceRevision == self.source_revision
+            ):
                 return current
             return await self._refresh(state, target)
 
@@ -763,7 +881,11 @@ class DailyMathService:
         target = self._local_today()
         state = self._load_state()
         current = self._current_digest(state)
-        if current and current.date == target.isoformat():
+        if (
+            current
+            and current.date == target.isoformat()
+            and current.sourceRevision == self.source_revision
+        ):
             return MathDailyResponse(digest=current)
 
         if current and not wait_for_refresh:

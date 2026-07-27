@@ -3,24 +3,68 @@
     "id": "mathematical-analysis",
     "title": "Mathematical analysis",
     "language": "en",
-    "sourceTitle": "Measure, Integration & Real Analysis",
-    "authors": "Sheldon Axler",
-    "sourceUrl": "https://measure.axler.net/",
-    "availability": "Open-access full book",
-    "license": "CC BY-NC 4.0",
+    "sourceTitle": "Zorich; Demidovich; Kaczor and Nowak",
+    "authors": "V. A. Zorich; B. P. Demidovich; W. J. Kaczor and M. T. Nowak",
+    "sourceUrl": "https://znanium.ru/catalog/document?id=416821",
+    "availability": "Three requested books: complete university-hosted texts for Zorich and Demidovich, plus publisher-controlled preview material for Kaczor and Nowak",
+    "license": "Commercial copyrighted books; use the publicly provided university texts and official preview material",
+    "problemSourcePolicy": "one_problem_per_source",
+    "problemSources": [
+      {
+        "title": "Математический анализ. Части I-II",
+        "authors": "В. А. Зорич",
+        "sourceUrl": "https://znanium.ru/catalog/document?id=416821",
+        "edition": "МЦНМО, 2021",
+        "materialNote": "The requested 2021 edition; the locally indexed full text is the author/university-provided correction of the immediately preceding edition."
+      },
+      {
+        "title": "Сборник задач и упражнений по математическому анализу",
+        "authors": "Б. П. Демидович",
+        "sourceUrl": "https://e.lanbook.com/book/184105",
+        "edition": "Лань, 24-е изд., стер., 2022",
+        "materialNote": "The requested edition is a sterile reprint; the locally indexed university-hosted text is the substantively identical 2021 edition."
+      },
+      {
+        "title": "Problems in Mathematical Analysis I: Real Numbers, Sequences and Series",
+        "authors": "W. J. Kaczor and M. T. Nowak",
+        "sourceUrl": "https://bookstore.ams.org/stml-4/",
+        "edition": "AMS, 2000",
+        "materialNote": "Only official publisher-controlled preview and bibliographic material is cached; a full unrestricted legal download is not available."
+      }
+    ],
     "files": [
       {
-        "url": "https://measure.axler.net/MIRA.pdf",
-        "filename": "measure-integration-real-analysis.pdf",
-        "kind": "pdf"
+        "url": "https://matan.math.msu.su/media/uploads/2020/03/V.A.Zorich-Kniga-I-10-izdanie-Corr.pdf",
+        "filename": "zorich-mathematical-analysis-part-1.pdf",
+        "kind": "pdf",
+        "sourceIndex": 0
+      },
+      {
+        "url": "https://matan.math.msu.su/media/uploads/2020/03/V.A.Zorich-Kniga-II-9-izdanie-Temp-Corr-3.pdf",
+        "filename": "zorich-mathematical-analysis-part-2.pdf",
+        "kind": "pdf",
+        "sourceIndex": 0
+      },
+      {
+        "url": "https://lib.ysu.am/open_books/415490.pdf",
+        "filename": "demidovich-analysis-problems.pdf",
+        "kind": "pdf",
+        "sourceIndex": 1,
+        "verifyTls": false
+      },
+      {
+        "url": "https://books.google.com/books/about/Problems_in_Mathematical_Analysis_Real_n.html?id=eoXxBwAAQBAJ&hl=en",
+        "filename": "kaczor-nowak-analysis-official-preview.html",
+        "kind": "html",
+        "sourceIndex": 2
       }
     ],
     "topics": [
-      "limits and convergence",
-      "Riemann and Lebesgue integration",
-      "metric and normed spaces",
-      "inequalities",
-      "measure and probability"
+      "real numbers and completeness",
+      "limits, sequences, and series",
+      "continuity and differentiation",
+      "Riemann, multiple, and parameter-dependent integrals",
+      "metric spaces and multivariable analysis"
     ]
   },
   {

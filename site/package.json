@@ -3,16 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "prebuild": "node scripts/extract-vocab.mjs",
+    "prebuild": "node scripts/extract-vocab.mjs && node scripts/copy-stockfish.mjs",
     "build": "next build",
     "start": "next start -p 3010",
+    "predev": "node scripts/copy-stockfish.mjs",
     "dev": "next dev -p 3010",
     "extract-vocab": "node scripts/extract-vocab.mjs"
   },
   "dependencies": {
+    "chess.js": "^1.4.0",
     "katex": "^0.16.22",
     "next": "15.2.4",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-chessboard": "^5.10.0",
+    "react-dom": "19.0.0",
+    "stockfish": "^18.0.8"
   }
 }

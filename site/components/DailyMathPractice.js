@@ -88,7 +88,9 @@ function ProblemCard({ problem, index }) {
           {problem.difficulty}
         </span>
       </div>
-      <h3>{problem.title}</h3>
+      <h3>
+        <MathText>{problem.title}</MathText>
+      </h3>
       <a
         className="math-problem-source"
         href={problem.sourceUrl}
@@ -103,7 +105,9 @@ function ProblemCard({ problem, index }) {
       </a>
       <div className="math-concepts">
         {problem.concepts.map((concept) => (
-          <span key={concept}>{concept}</span>
+          <span key={concept}>
+            <MathText>{concept}</MathText>
+          </span>
         ))}
       </div>
       <div className="math-statement">

@@ -186,6 +186,10 @@ class DailyMathServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         persisted = json.loads(self.data_file.read_text(encoding="utf-8"))
         self.assertEqual(len(persisted["history"]["subject-a"]), 3)
+        self.assertEqual(
+            persisted["current"]["sourceRevision"],
+            self.service.source_revision,
+        )
         self.assertTrue(
             persisted["current"]["subjects"][0]["source"]["locallyCached"]
         )
@@ -247,6 +251,121 @@ class DailyMathServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("A complete source excerpt for practice.", prompt)
         self.assertEqual(first_call.kwargs["reasoning_effort"], "high")
         self.assertEqual(first_call.kwargs["verbosity"], "high")
+
+    async def test_manifest_revision_invalidates_same_day_cache(self) -> None:
+        self.manifest_file.write_text(
+            json.dumps([self.manifest[0]]),
+            encoding="utf-8",
+        )
+        first_generator = AsyncMock(return_value=generated_practice("Alpha"))
+        first_service = DailyMathService(
+            data_file=self.data_file,
+            manifest_file=self.manifest_file,
+            resources_dir=self.resources_dir,
+            timezone_name="UTC",
+            json_generator=first_generator,
+        )
+        first_service._local_today = lambda: date(2026, 7, 24)
+        first = await first_service.get()
+
+        changed_manifest = [dict(self.manifest[0])]
+        changed_manifest[0]["topics"] = ["new source edition"]
+        self.manifest_file.write_text(
+            json.dumps(changed_manifest),
+            encoding="utf-8",
+        )
+        second_generator = AsyncMock(return_value=generated_practice("Beta"))
+        second_service = DailyMathService(
+            data_file=self.data_file,
+            manifest_file=self.manifest_file,
+            resources_dir=self.resources_dir,
+            timezone_name="UTC",
+            json_generator=second_generator,
+        )
+        second_service._local_today = lambda: date(2026, 7, 24)
+
+        second = await second_service.get()
+
+        self.assertEqual(
+            first.digest.subjects[0].problems[0].title,
+            "Alpha warm-up",
+        )
+        self.assertEqual(
+            second.digest.subjects[0].problems[0].title,
+            "Beta warm-up",
+        )
+        self.assertNotEqual(first.digest.sourceRevision, second.digest.sourceRevision)
+        self.assertEqual(second_generator.await_count, 1)
+
+    async def test_multi_book_subject_uses_one_origin_per_problem(self) -> None:
+        multi_source = source("mathematical-analysis", "book-one.pdf")
+        multi_source["sourceTitle"] = "Three analysis books"
+        multi_source["problemSourcePolicy"] = "one_problem_per_source"
+        multi_source["problemSources"] = [
+            {
+                "title": "Zorich",
+                "authors": "V. A. Zorich",
+                "sourceUrl": "https://example.com/zorich",
+                "edition": "2021",
+                "materialNote": "Full text.",
+            },
+            {
+                "title": "Demidovich",
+                "authors": "B. P. Demidovich",
+                "sourceUrl": "https://example.com/demidovich",
+                "edition": "2022",
+                "materialNote": "Full text.",
+            },
+            {
+                "title": "Kaczor and Nowak",
+                "authors": "W. J. Kaczor and M. T. Nowak",
+                "sourceUrl": "https://example.com/kaczor-nowak",
+                "edition": "2000",
+                "materialNote": "Official preview.",
+            },
+        ]
+        multi_source["files"] = [
+            {
+                "url": f"https://example.com/book-{index}.pdf",
+                "filename": f"book-{index}.pdf",
+                "kind": "pdf",
+                "sourceIndex": index,
+            }
+            for index in range(3)
+        ]
+        self.manifest_file.write_text(
+            json.dumps([multi_source]),
+            encoding="utf-8",
+        )
+        for index in range(3):
+            (self.resources_dir / f"book-{index}.pdf.txt").write_text(
+                (
+                    f"Book {index + 1}\nExercises\nA complete analysis problem "
+                    "excerpt with enough explanatory source text for local indexing."
+                ),
+                encoding="utf-8",
+            )
+        generator = AsyncMock(return_value=generated_practice())
+        service = DailyMathService(
+            data_file=self.data_file,
+            manifest_file=self.manifest_file,
+            resources_dir=self.resources_dir,
+            timezone_name="UTC",
+            json_generator=generator,
+        )
+        service._local_today = lambda: date(2026, 7, 24)
+
+        response = await service.get()
+
+        self.assertEqual(
+            [problem.sourceTitle for problem in response.digest.subjects[0].problems],
+            ["Zorich", "Demidovich", "Kaczor and Nowak"],
+        )
+        prompt = generator.await_args.kwargs["messages"][1]["content"]
+        self.assertIn('<book_reference index="1">', prompt)
+        self.assertIn('<book_reference index="2">', prompt)
+        self.assertIn('<book_reference index="3">', prompt)
+        self.assertIn("Problem 1 (warm-up) must come from book_reference 1", prompt)
 
     async def test_algorithm_day_mixes_book_medium_and_hard_with_python(self) -> None:
         algorithm_source = source("algoday", "algorithms.pdf")

@@ -20,6 +20,21 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+try:
+    from .daily_sayings import (
+        SAYINGS_HISTORY_LIMIT,
+        SAYINGS_VERSION,
+        DailySaying,
+        DailySayingService,
+    )
+except ImportError:
+    from daily_sayings import (
+        SAYINGS_HISTORY_LIMIT,
+        SAYINGS_VERSION,
+        DailySaying,
+        DailySayingService,
+    )
+
 
 JsonGenerator = Callable[..., Awaitable[dict[str, Any]]]
 
@@ -111,6 +126,8 @@ class DailyDigest(StrictModel):
     timezone: str
     sources: list[SourceStatus]
     onThisDay: list[OnThisDayItem]
+    sayingsVersion: int = 0
+    sayings: list[DailySaying] = Field(default_factory=list, max_length=6)
     research: list[ResearchItem]
     cars: list[CarItem]
     poem: PoemItem
@@ -217,8 +234,11 @@ def _plain_quotes(value: Any) -> Any:
             "\u2018": "'",
             "\u2019": "'",
             "\u02bc": "'",
+            "\u00ab": '"',
+            "\u00bb": '"',
             "\u201c": '"',
             "\u201d": '"',
+            "\u201e": '"',
         }
     )
     if isinstance(value, str):
@@ -271,6 +291,9 @@ class DailyDigestService:
             self.timezone_name = "UTC"
             self.timezone = ZoneInfo("UTC")
         self.json_generator = json_generator
+        self.sayings = DailySayingService(
+            json_generator=json_generator,
+        )
         self._file_lock = threading.Lock()
         self._refresh_lock = asyncio.Lock()
 
@@ -280,7 +303,12 @@ class DailyDigestService:
     def _empty_state(self) -> dict[str, Any]:
         return {
             "current": None,
-            "history": {"research": [], "cars": [], "poems": []},
+            "history": {
+                "research": [],
+                "cars": [],
+                "poems": [],
+                "sayings": [],
+            },
         }
 
     def _load_state(self) -> dict[str, Any]:
@@ -298,7 +326,7 @@ class DailyDigestService:
                         for item in (history.get(key) or [])
                         if isinstance(item, str) and item.strip()
                     ]
-                    for key in ("research", "cars", "poems")
+                    for key in ("research", "cars", "poems", "sayings")
                 }
                 return parsed
             except FileNotFoundError:
@@ -360,8 +388,48 @@ class DailyDigestService:
             history["poems"],
             [_history_key(f"{digest.poem.author} | {digest.poem.title}")],
         )
+        history["sayings"] = self.sayings.remember(
+            history["sayings"],
+            digest.sayings,
+            limit=SAYINGS_HISTORY_LIMIT,
+        )
         state["current"] = digest.model_dump(mode="json")
         self._save_state(state)
+
+    async def _ensure_digest_sayings(
+        self,
+        state: dict[str, Any],
+        digest: DailyDigest,
+    ) -> DailyDigest:
+        if (
+            digest.sayingsVersion == SAYINGS_VERSION
+            and len(digest.sayings) == 6
+            and sum(item.language == "ru" for item in digest.sayings) == 3
+            and sum(item.language == "en" for item in digest.sayings) == 3
+        ):
+            return digest
+        try:
+            digest_date = date.fromisoformat(digest.date)
+        except ValueError:
+            digest_date = self._local_today()
+        selected = await self.sayings.prepare(
+            target=digest_date,
+            history=state["history"]["sayings"],
+        )
+        updated = digest.model_copy(
+            update={
+                "sayings": selected,
+                "sayingsVersion": SAYINGS_VERSION,
+            }
+        )
+        state["history"]["sayings"] = self.sayings.remember(
+            state["history"]["sayings"],
+            selected,
+            limit=SAYINGS_HISTORY_LIMIT,
+        )
+        state["current"] = updated.model_dump(mode="json")
+        self._save_state(state)
+        return updated
 
     async def _ensure_digest_car_images(
         self, state: dict[str, Any], digest: DailyDigest
@@ -662,8 +730,8 @@ class DailyDigestService:
         history: dict[str, list[str]],
     ) -> GeneratedDailyContent:
         recent_history = {
-            key: list(values)[-PROMPT_HISTORY_LIMIT:]
-            for key, values in history.items()
+            key: list(history.get(key) or [])[-PROMPT_HISTORY_LIMIT:]
+            for key in ("research", "cars", "poems")
         }
         evidence_text = "\n\n".join(
             f"<source name={json.dumps(label)}>\n{content}\n</source>"
@@ -733,7 +801,14 @@ class DailyDigestService:
     async def _refresh(
         self, state: dict[str, Any], target: date
     ) -> DailyDigest:
-        evidence, statuses = await self._fetch_sources(target)
+        source_result, sayings = await asyncio.gather(
+            self._fetch_sources(target),
+            self.sayings.prepare(
+                target=target,
+                history=state["history"]["sayings"],
+            ),
+        )
+        evidence, statuses = source_result
         content = await self._generate_content(
             target=target,
             evidence=evidence,
@@ -748,6 +823,8 @@ class DailyDigestService:
             generatedAt=generated_at,
             timezone=self.timezone_name,
             sources=statuses,
+            sayingsVersion=SAYINGS_VERSION,
+            sayings=sayings,
             **content.model_dump(exclude={"cars"}),
             cars=cars,
         )
@@ -762,6 +839,8 @@ class DailyDigestService:
             current
             and current.date == target.isoformat()
             and all(car.imageUrl for car in current.cars)
+            and len(current.sayings) == 6
+            and current.sayingsVersion == SAYINGS_VERSION
         ):
             return DailyResponse(digest=current)
 
@@ -770,12 +849,20 @@ class DailyDigestService:
             current = self._current_digest(state)
             if current and current.date == target.isoformat():
                 current = await self._ensure_digest_car_images(state, current)
+                current = await self._ensure_digest_sayings(state, current)
                 return DailyResponse(digest=current)
             try:
                 return DailyResponse(digest=await self._refresh(state, target))
             except Exception as exc:
                 if current:
                     print(f"[daily] refresh failed; serving stale digest: {exc}", flush=True)
+                    try:
+                        current = await self._ensure_digest_sayings(state, current)
+                    except Exception as sayings_exc:
+                        print(
+                            f"[daily] sayings backfill failed: {sayings_exc}",
+                            flush=True,
+                        )
                     return DailyResponse(
                         digest=current,
                         stale=True,

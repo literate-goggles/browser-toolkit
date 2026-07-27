@@ -22,8 +22,15 @@ src/js/vocab-pte.js
 api/bans.json
 api/daily.json
 api/math_daily.json
+api/chess_drills.json
+api/daily_timers.sqlite3
+api/daily_timers.sqlite3-shm
+api/daily_timers.sqlite3-wal
 api/resources/math_sources/*
 !api/resources/math_sources/.gitkeep
+
+# Generated browser engine assets (copied from the stockfish npm package)
+site/public/stockfish/
 
 # OS-specific files
 .DS_Store

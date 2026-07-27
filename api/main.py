@@ -33,11 +33,25 @@ from pydantic import (
 )
 
 try:
+    from .chess_drills import ChessDrillResponse, ChessDrillService
     from .daily_digest import DailyDigestService, DailyResponse
     from .daily_math import DailyMathService, MathDailyResponse
+    from .daily_timers import (
+        DailyTimerService,
+        DailyTimersResponse,
+        TimerConflictError,
+        UnknownTimerActivityError,
+    )
 except ImportError:
+    from chess_drills import ChessDrillResponse, ChessDrillService
     from daily_digest import DailyDigestService, DailyResponse
     from daily_math import DailyMathService, MathDailyResponse
+    from daily_timers import (
+        DailyTimerService,
+        DailyTimersResponse,
+        TimerConflictError,
+        UnknownTimerActivityError,
+    )
 
 
 API_DIR = Path(__file__).resolve().parent
@@ -65,6 +79,25 @@ DAILY_DATA_FILE = Path(
 MATH_DATA_FILE = Path(
     os.getenv("MATH_DATA_FILE", str(API_DIR / "math_daily.json"))
 ).expanduser()
+CHESS_DRILLS_DATA_FILE = Path(
+    os.getenv("CHESS_DRILLS_DATA_FILE", str(API_DIR / "chess_drills.json"))
+).expanduser()
+DAILY_TIMERS_DB_FILE = Path(
+    os.getenv(
+        "DAILY_TIMERS_DB_FILE",
+        str(API_DIR / "daily_timers.sqlite3"),
+    )
+).expanduser()
+if not DAILY_TIMERS_DB_FILE.is_absolute():
+    DAILY_TIMERS_DB_FILE = PROJECT_DIR / DAILY_TIMERS_DB_FILE
+CHESS_REPERTOIRE_FILE = Path(
+    os.getenv(
+        "CHESS_REPERTOIRE_FILE",
+        str(API_DIR / "chess_repertoire.json"),
+    )
+).expanduser()
+if not CHESS_REPERTOIRE_FILE.is_absolute():
+    CHESS_REPERTOIRE_FILE = PROJECT_DIR / CHESS_REPERTOIRE_FILE
 MATH_SOURCES_FILE = Path(
     os.getenv("MATH_SOURCES_FILE", str(API_DIR / "math_sources.json"))
 ).expanduser()
@@ -75,6 +108,10 @@ MATH_RESOURCES_DIR = Path(
     )
 ).expanduser()
 DAILY_TIMEZONE = _configuration("DAILY_TIMEZONE", "UTC")
+CHESS_COM_USERNAME = _configuration(
+    "CHESS_COM_USERNAME",
+    "unlimited_bezdarnost",
+)
 OPENAI_API_KEY = _configuration("OPENAI_API_KEY")
 OPENAI_TEXT_MODEL = _configuration("OPENAI_TEXT_MODEL", "gpt-5.6-sol")
 OPENAI_TEXT_REASONING_EFFORT = _configuration(
@@ -216,13 +253,15 @@ WRITING_MODE_SPECS: dict[str, dict[str, str | int]] = {
 
 daily_service: DailyDigestService | None = None
 daily_math_service: DailyMathService | None = None
+chess_drill_service: ChessDrillService | None = None
+daily_timer_service: DailyTimerService | None = None
 
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
     scheduler_tasks = [
         asyncio.create_task(service.scheduler())
-        for service in (daily_service, daily_math_service)
+        for service in (daily_service, daily_math_service, chess_drill_service)
         if service is not None
     ]
     try:
@@ -661,6 +700,16 @@ daily_math_service = DailyMathService(
     resources_dir=MATH_RESOURCES_DIR,
     timezone_name=DAILY_TIMEZONE,
     json_generator=_openai_json,
+)
+chess_drill_service = ChessDrillService(
+    data_file=CHESS_DRILLS_DATA_FILE,
+    username=CHESS_COM_USERNAME,
+    timezone_name=DAILY_TIMEZONE,
+    repertoire_file=CHESS_REPERTOIRE_FILE,
+)
+daily_timer_service = DailyTimerService(
+    database_file=DAILY_TIMERS_DB_FILE,
+    timezone_name=DAILY_TIMEZONE,
 )
 
 
@@ -1221,6 +1270,68 @@ async def get_daily_math() -> MathDailyResponse:
         raise HTTPException(
             status_code=502,
             detail="Could not prepare today's math practice. Please try again shortly.",
+        ) from exc
+
+
+@app.get("/api/daily/chess", response_model=ChessDrillResponse)
+async def get_daily_chess(*, refresh: bool = False) -> ChessDrillResponse:
+    if not chess_drill_service:
+        raise HTTPException(
+            status_code=503, detail="The chess drill service is unavailable"
+        )
+    try:
+        return await chess_drill_service.get(force_refresh=refresh)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        print(f"[chess-drills] could not prepare drills: {exc}", flush=True)
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Could not prepare today's chess drills. "
+                "Please try again shortly."
+            ),
+        ) from exc
+
+
+@app.get("/api/daily/timers", response_model=DailyTimersResponse)
+def get_daily_timers() -> DailyTimersResponse:
+    if not daily_timer_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The daily timer service is unavailable",
+        )
+    try:
+        return daily_timer_service.get()
+    except Exception as exc:
+        print(f"[daily-timers] could not read timers: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not read the daily timers.",
+        ) from exc
+
+
+@app.post(
+    "/api/daily/timers/{activity_key}/start",
+    response_model=DailyTimersResponse,
+)
+def start_daily_timer(activity_key: str) -> DailyTimersResponse:
+    if not daily_timer_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The daily timer service is unavailable",
+        )
+    try:
+        return daily_timer_service.start(activity_key)
+    except UnknownTimerActivityError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except TimerConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"[daily-timers] could not start timer: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not start the daily timer.",
         ) from exc
 
 

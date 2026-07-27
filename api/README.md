@@ -11,6 +11,9 @@ IELTS pipelines.
 | `GET` | `/api/health` | Service and provider-key readiness |
 | `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
 | `GET` | `/api/daily/math` | Return 30 daily source-grounded problems and solutions |
+| `GET` | `/api/daily/chess` | Return five repertoire-matched game positions and five theory positions |
+| `GET` | `/api/daily/timers` | Return today's focus timers and accumulated totals |
+| `POST` | `/api/daily/timers/{activityKey}/start` | Irreversibly start today's 25-minute activity |
 | `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
 | `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
@@ -39,6 +42,14 @@ background scheduler refreshes after midnight in `DAILY_TIMEZONE`; the first
 request after a date change is a synchronous fallback if the scheduled refresh
 has not finished.
 
+The same digest fetches the complete "Русские пословицы" and alphabetical
+"English proverbs" Wikiquote pages at daily creation time, extracts their
+top-level proverb entries, and samples three unseen entries from each large
+pool. GPT-5.6 Sol then adds an opposite-language translation, a concise
+meaning, and a careful origin or usage note. Source wording and identifiers
+remain server-controlled, so the model cannot replace the sampled proverb.
+Selection history is stored alongside the digest in `api/daily.json`.
+
 The math studio reads the ten-source catalog in `api/math_sources.json`.
 Complete author-hosted books and readers are downloaded and converted into
 local text indexes before generation. The commercial Machine Learning System
@@ -57,6 +68,15 @@ exercise's task and attribution, retaining source wording only when reuse terms
 permit it. Each includes a hint, a worked solution, and a modified follow-up
 with its own solution.
 
+Mathematical analysis uses one problem per day from each requested source:
+Zorich's "Математический анализ" (МЦНМО, 2021), Demidovich's "Сборник задач и
+упражнений по математическому анализу" (Лань, 2022), and Kaczor and Nowak's
+"Problems in Mathematical Analysis" (AMS, 2000). Complete university-hosted
+texts are indexed for Zorich and the substantively identical 2021 edition of
+Demidovich's 2022 sterile reprint. Kaczor and Nowak is indexed from official
+publisher-controlled preview material because no unrestricted legal full
+download is available.
+
 Algorithm day is a fixed mix: one problem from Competitive Programmer's
 Handbook, one LeetCode Medium problem, and one LeetCode Hard problem. The
 backend chooses the LeetCode pair deterministically without repetition and
@@ -66,6 +86,32 @@ The curated public problem catalog lives in `api/leetcode_problems.json`.
 The saved daily set and non-repetition keys live in `api/math_daily.json`. If a
 midnight refresh is still running, the API serves the previous set until the
 new one is ready.
+
+The chess drill service validates the checked-in book at
+`api/chess_repertoire.json`, reads Chess.com's public monthly archives
+serially, collects the latest 100 standard games, and parses their PGNs with
+`python-chess`. It returns five early game positions whose exact board states
+occur in the repertoire, plus five deeper theory positions balanced across
+White and Black. The sampler rotates unseen positions and opening families.
+Its daily cache and least-recently-used history live in
+`api/chess_drills.json`.
+
+Move legality and optional Stockfish 18 comparison run locally in the browser.
+Correctness comes from every accepted move in the repertoire book, so a sound
+book move is not rejected just because the engine ranks another move first.
+The build
+copies the recommended lite single-threaded Stockfish.js WebAssembly assets
+from the npm package, including its GPLv3 license. No Chess.com credentials are
+required because the game archive is public. Add `?refresh=true` to the chess
+endpoint to pull newer games and rotate the current set manually.
+
+Daily focus sessions are stored in SQLite at `api/daily_timers.sqlite3` by
+default. SQLite is built into Python, so no separate database daemon or package
+is required. The API owns the start and end timestamps: reloading or closing
+the page cannot pause a running timer. The schema keeps activity, local date,
+duration, start, scheduled end, and completion timestamps for later totals,
+streaks, and calendar statistics. Only one focus timer may run at once, and
+each activity can be completed once per local day.
 
 ## Setup
 
@@ -87,6 +133,9 @@ OPENAI_TEXT_REASONING_EFFORT=low
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 OPENAI_AUDIO_MODEL=gpt-audio-1.5
 DAILY_TIMEZONE=UTC
+DAILY_TIMERS_DB_FILE=api/daily_timers.sqlite3
+CHESS_COM_USERNAME=unlimited_bezdarnost
+CHESS_REPERTOIRE_FILE=api/chess_repertoire.json
 ```
 
 A repository-root `.env` supplies the server-only OpenAI key without exposing
@@ -115,5 +164,6 @@ sudo journalctl -u daily-vocab-bans -f
 ```
 
 Runtime bans remain in `api/bans.json`; the daily digest lives in
-`api/daily.json`; and the math set lives in `api/math_daily.json`. All three
-runtime files are excluded from git.
+`api/daily.json`; the math set lives in `api/math_daily.json`; and chess drill
+state lives in `api/chess_drills.json`. Timer history lives in
+`api/daily_timers.sqlite3`. All runtime files are excluded from git.

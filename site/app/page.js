@@ -1,9 +1,9 @@
 import DailyDashboard from "@/components/DailyDashboard";
 
 export const metadata = {
-  title: "Morning brief · daily.chebakov.me",
+  title: "Morning Brief · daily.chebakov.me",
   description:
-    "A personal daily dashboard for IELTS, machine learning research, history, cars, and Russian poetry.",
+    "A personal daily dashboard for IELTS, chess, mathematics, machine learning research, history, cars, and Russian poetry.",
 };
 
 export default function HomePage() {

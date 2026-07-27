@@ -18,6 +18,40 @@ source of truth for the features I want on the site.
 Keep the IELTS vocabulary, speaking, and writing tools. They are an important
 part of the routine and should remain focused on practical progress.
 
+## Daily focus timers
+
+Keep separate 25-minute timers for reading English books and Russian books.
+Once started, a timer cannot be paused or reset and must run to completion,
+then play a chime. Preserve every session in durable storage so future pages
+can show totals, streaks, and other statistics. Allow only one focus timer to
+run at a time and only one completion per activity per day.
+
+## Chess drills
+
+Pull the latest 100 standard games for `unlimited_bezdarnost` from Chess.com
+and prepare ten repertoire-recall positions every day: five matched positions
+from those games and five deeper positions from opening theory.
+
+- For White, practise the Italian Game Classical Center Attack; the Knights
+  Attack/Polerio line with the Be2 retreat after `...Na5`, `...c6`, and
+  `...bxc6`; the French Advance with c3 and Bd3 after the
+  `...Nc6`/`...Qb6` setup; the Caro-Kann Advance with immediate c4 after
+  `...Bf5`, `Nf3`, `...e6`, `Be2`, `...c5`; and the g3/Bg2 fianchetto against
+  the Sicilian Najdorf.
+- For Black, practise the Sicilian Accelerated Dragon, including anti-Sicilian
+  sidelines such as early h3, c4, c3, Bc4, and closed setups; play the Slav
+  Defense against 1.d4 and c4.
+- Keep game positions between moves 3 and 9. Theory positions may go
+  substantially deeper.
+- Let me move pieces on a real board and give me three wrong legal tries.
+  Illegal moves should not consume a try.
+- Grade against the repertoire book and accept every saved book continuation,
+  even when Stockfish ranks another move first. Use Stockfish to explain and
+  compare moves, not as the single answer key.
+- After completion, show the accepted continuation, engine comparisons, and,
+  for a game sample, the move I played and the source game.
+- Remember prior positions and rotate across both colours and opening families.
+
 ## On this day
 
 Use the current date to read both the Russian and English Wikipedia date pages,
@@ -29,6 +63,17 @@ for example:
 Present a concise selection of interesting historical events, holidays, and
 people born on that date. Use both languages and include enough context to be
 useful without opening Wikipedia.
+
+## Sayings and catchphrases
+
+Show three Russian and three English sayings every day. Mix recognisable
+sayings with useful traditional proverbs. At daily creation time, fetch the
+full Russian and English Wikiquote proverb collections and sample three unseen
+entries from each language; do not build the pool around any example book,
+film, or author. Use the advanced OpenAI text model to add a translation into
+the other language, a short meaning, and a careful origin or usage note.
+Keep the cards understandable without opening the source links and remember
+selected entries so the large pools rotate without repetition.
 
 ## ML research
 
@@ -52,6 +97,13 @@ design, algorithms, ML mathematics, and proof practice.
 - Ground each set in a complete legitimate book or author-provided source
   cached by the backend. For a commercial book without a legal full download,
   use its official public material and complete author companion repository.
+- For mathematical analysis, prepare exactly one problem from each of these
+  sources every day:
+  - В. А. Зорич, "Математический анализ", МЦНМО, 2021.
+  - Б. П. Демидович, "Сборник задач и упражнений по математическому анализу",
+    Лань, 2022.
+  - W. J. Kaczor and M. T. Nowak, "Problems in Mathematical Analysis",
+    AMS, 2000.
 - Preserve each selected exercise's task, data, constraints, and attribution.
   Keep the source wording when its reuse terms allow it; otherwise use a
   minimal faithful restatement.

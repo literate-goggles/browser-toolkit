@@ -2109,6 +2109,239 @@ button {
   line-height: 1;
 }
 
+.daily-timers-section {
+  background:
+    linear-gradient(
+      135deg,
+      rgba(255, 254, 249, 0.96),
+      rgba(241, 237, 226, 0.9)
+    ),
+    #fbfaf5;
+}
+
+.daily-timer-summary {
+  margin: -4px 0 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(56, 107, 104, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.52);
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+}
+
+.daily-timer-summary span {
+  padding: 0 18px;
+  color: #77807c;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.daily-timer-summary span:first-child {
+  padding-left: 0;
+}
+
+.daily-timer-summary span + span {
+  border-left: 1px solid rgba(56, 107, 104, 0.13);
+}
+
+.daily-timer-summary strong {
+  margin-left: 8px;
+  color: #254a48;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.daily-timer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.daily-timer-card {
+  min-height: 305px;
+  padding: 22px;
+  border: 1px solid #d9ddd5;
+  border-radius: 18px;
+  background: rgba(255, 254, 249, 0.92);
+  display: flex;
+  flex-direction: column;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.daily-timer-card[data-status="running"] {
+  border-color: rgba(44, 99, 94, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(44, 99, 94, 0.08);
+}
+
+.daily-timer-card[data-status="completed"] {
+  border-color: rgba(66, 128, 91, 0.32);
+  background: rgba(241, 248, 239, 0.82);
+}
+
+.daily-timer-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.daily-timer-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(173, 92, 64, 0.2);
+  border-radius: 50%;
+  color: #ad5c40;
+  background: rgba(217, 119, 87, 0.08);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.daily-timer-status {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #68736f;
+  background: #ebeae3;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.daily-timer-card[data-status="running"] .daily-timer-status {
+  color: #285955;
+  background: rgba(56, 107, 104, 0.11);
+}
+
+.daily-timer-card[data-status="completed"] .daily-timer-status {
+  color: #2f7047;
+  background: rgba(66, 128, 91, 0.12);
+}
+
+.daily-timer-card h3 {
+  margin-top: 22px;
+  color: #183333;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.daily-timer-card p {
+  min-height: 38px;
+  margin-top: 7px;
+  color: #6a7470;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.daily-timer-clock {
+  display: block;
+  margin-top: auto;
+  color: #17302f;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(40px, 6vw, 58px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.daily-timer-progress {
+  height: 4px;
+  margin-top: 15px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e3dc;
+}
+
+.daily-timer-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b9684c, #386b68);
+  transition: width 250ms linear;
+}
+
+.daily-timer-card > button,
+.daily-timer-locked {
+  width: 100%;
+  min-height: 43px;
+  margin-top: 16px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.daily-timer-card > button {
+  border: 0;
+  color: #fff;
+  background: #285955;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    background-color 150ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .daily-timer-card > button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #1f4b48;
+  }
+}
+
+.daily-timer-card > button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.daily-timer-locked {
+  border: 1px solid rgba(56, 107, 104, 0.18);
+  color: #386b68;
+  background: rgba(56, 107, 104, 0.065);
+}
+
+.daily-timer-loading,
+.daily-timer-error {
+  min-height: 110px;
+  border: 1px dashed rgba(56, 107, 104, 0.25);
+  border-radius: 16px;
+  color: #6a7470;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.daily-timer-error {
+  padding: 18px;
+  gap: 10px;
+}
+
+.daily-timer-error button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #285955;
+  cursor: pointer;
+}
+
+.daily-timer-rule {
+  margin-top: 14px;
+  color: #7a817d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .daily-loading,
 .daily-load-error {
   min-height: 150px;
@@ -2275,6 +2508,7 @@ button {
 }
 
 .daily-history-card a,
+.daily-saying-card a,
 .daily-research-card a {
   width: fit-content;
   margin-top: auto;
@@ -2288,6 +2522,138 @@ button {
   align-items: center;
   gap: 6px;
   opacity: 0.72;
+}
+
+.daily-sayings-section {
+  background: #f3eee2;
+}
+
+.daily-sayings-languages {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-sayings-language {
+  border: 1px solid rgba(36, 57, 55, 0.12);
+  border-radius: 18px;
+  background: #fbfaf5;
+  overflow: hidden;
+}
+
+.daily-sayings-language[data-language="ru"] {
+  background: #efe3d2;
+}
+
+.daily-sayings-language[data-language="en"] {
+  background: #e1ebe7;
+}
+
+.daily-sayings-language-heading {
+  padding: 18px 21px;
+  border-bottom: 1px solid rgba(36, 57, 55, 0.12);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.daily-sayings-language-heading > span {
+  color: #a64f37;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.daily-sayings-language-heading p {
+  color: rgba(36, 57, 55, 0.56);
+  font-size: 10px;
+}
+
+.daily-sayings-list {
+  display: grid;
+}
+
+.daily-saying-card {
+  min-height: 292px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-saying-card + .daily-saying-card {
+  border-top: 1px solid rgba(36, 57, 55, 0.12);
+}
+
+.daily-saying-number {
+  color: rgba(36, 57, 55, 0.42);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.daily-saying-card blockquote {
+  margin-top: 14px;
+  color: #193938;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(21px, 2.2vw, 28px);
+  line-height: 1.17;
+}
+
+.daily-saying-card > p {
+  margin-top: 14px;
+  color: rgba(36, 57, 55, 0.78);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.daily-saying-translation {
+  margin-top: 16px;
+  display: grid;
+  gap: 5px;
+}
+
+.daily-saying-translation strong {
+  color: #a64f37;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.daily-saying-translation span {
+  color: #254d4a;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.daily-saying-origin {
+  margin-top: 18px;
+  padding: 12px 13px;
+  border: 1px solid rgba(36, 57, 55, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.25);
+  display: grid;
+  gap: 5px;
+}
+
+.daily-saying-origin strong {
+  color: #a64f37;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.daily-saying-origin span {
+  color: rgba(36, 57, 55, 0.66);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.daily-saying-card a {
+  color: #254d4a;
 }
 
 .daily-research-section {
@@ -2855,7 +3221,7 @@ button {
   gap: 5px;
 }
 
-.math-concepts span {
+.math-concepts > span {
   height: fit-content;
   padding: 3px 6px;
   border: 1px solid #d8dad2;
@@ -3021,8 +3387,7 @@ button {
   margin: 0;
   padding: 13px;
   overflow-x: auto;
-  font-family:
-    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 10px;
   line-height: 1.6;
   tab-size: 4;
@@ -3071,6 +3436,580 @@ button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   display: block;
+}
+
+.daily-chess-section {
+  overflow: hidden;
+  border-color: rgba(59, 82, 77, 0.17);
+  background:
+    radial-gradient(
+      circle at 94% 5%,
+      rgba(197, 117, 83, 0.13),
+      transparent 31%
+    ),
+    #f3f4ef;
+}
+
+.chess-section-heading h2 {
+  color: #183c39;
+}
+
+.chess-drill-loading {
+  min-height: 180px;
+  margin-top: 22px;
+  border: 1px solid rgba(42, 74, 69, 0.15);
+  border-radius: 14px;
+  padding: 28px;
+  color: #304b47;
+  background: rgba(255, 255, 255, 0.52);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.chess-drill-loading strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-weight: 500;
+}
+
+.chess-drill-loading p {
+  margin-top: 5px;
+  color: #71807c;
+  font-size: 11px;
+}
+
+.chess-thinking-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #f4ede3;
+  background: #294f4b;
+  font-size: 23px;
+  display: inline-grid;
+  place-items: center;
+  animation: chess-thinking 1.45s ease-in-out infinite;
+}
+
+@keyframes chess-thinking {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+
+  50% {
+    transform: translateY(-4px) rotate(3deg);
+  }
+}
+
+.chess-drill-toolbar {
+  margin-top: 22px;
+  border-top: 1px solid rgba(42, 74, 69, 0.15);
+  border-bottom: 1px solid rgba(42, 74, 69, 0.15);
+  padding: 13px 0;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.chess-progress-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chess-progress-copy strong {
+  color: #244743;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chess-progress-copy span {
+  color: #7a8581;
+  font-size: 9px;
+}
+
+.chess-progress-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(41, 79, 75, 0.13);
+}
+
+.chess-progress-track span {
+  height: 100%;
+  border-radius: inherit;
+  background: #c86749;
+  display: block;
+  transition: width 220ms ease;
+}
+
+.chess-refresh-button,
+.chess-reveal-button,
+.chess-feedback button,
+.chess-drill-navigation > button {
+  border: 1px solid rgba(41, 79, 75, 0.27);
+  border-radius: 8px;
+  padding: 0.55rem 0.72rem;
+  color: #294f4b;
+  background: transparent;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chess-refresh-button:hover:not(:disabled),
+.chess-refresh-button:focus-visible,
+.chess-reveal-button:hover:not(:disabled),
+.chess-reveal-button:focus-visible,
+.chess-feedback button:hover,
+.chess-feedback button:focus-visible,
+.chess-drill-navigation > button:hover:not(:disabled),
+.chess-drill-navigation > button:focus-visible {
+  color: #fffaf3;
+  background: #294f4b;
+}
+
+.chess-refresh-button:disabled,
+.chess-reveal-button:disabled,
+.chess-drill-navigation > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.chess-drill-layout {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.98fr) minmax(300px, 0.88fr);
+  align-items: start;
+  gap: clamp(28px, 5vw, 68px);
+}
+
+.chess-board-column {
+  min-width: 0;
+}
+
+.chess-board-frame {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.chess-engine-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  color: #f5f0e7;
+  background: rgba(20, 47, 45, 0.86);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 5;
+}
+
+.chess-engine-overlay strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.chess-engine-overlay small {
+  color: rgba(245, 240, 231, 0.62);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chess-tries {
+  max-width: 560px;
+  margin: 13px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chess-tries > span {
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(200, 103, 73, 0.36);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.chess-tries > span.is-live {
+  border-color: #c86749;
+  background: #c86749;
+}
+
+.chess-tries strong {
+  margin-left: 4px;
+  color: #6d7b77;
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chess-tries small {
+  margin-left: auto;
+  color: #8a928f;
+  font-size: 8px;
+}
+
+.chess-drill-panel {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.chess-drill-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chess-drill-meta span {
+  border: 1px solid rgba(41, 79, 75, 0.19);
+  border-radius: 99px;
+  padding: 0.22rem 0.48rem;
+  color: #667772;
+  font-size: 8px;
+  font-weight: 780;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.chess-drill-meta span.is-game {
+  border-color: rgba(190, 92, 61, 0.32);
+  color: #9d4e37;
+  background: rgba(214, 118, 83, 0.08);
+}
+
+.chess-drill-meta span.is-theory {
+  border-color: rgba(50, 105, 94, 0.3);
+  color: #32695e;
+  background: rgba(71, 126, 114, 0.08);
+}
+
+.chess-drill-panel > h3 {
+  margin-top: 17px;
+  color: #1c3e3b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(27px, 3.4vw, 42px);
+  font-weight: 400;
+  line-height: 0.98;
+}
+
+.chess-prompt {
+  margin-top: 13px;
+  color: #536864;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.chess-repertoire-note {
+  margin-top: 8px;
+  border-left: 2px solid rgba(41, 79, 75, 0.25);
+  padding-left: 10px;
+  color: #77837f;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.chess-feedback {
+  margin-top: 16px;
+  border-left: 3px solid #c86749;
+  padding: 11px 12px;
+  color: #684536;
+  background: #f1e4db;
+  font-size: 10px;
+  line-height: 1.55;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chess-feedback.is-correct {
+  border-left-color: #3d7567;
+  color: #2d5d52;
+  background: #e0ece6;
+}
+
+.chess-feedback.is-error {
+  color: #754b3b;
+}
+
+.chess-wrong-moves {
+  margin-top: 14px;
+}
+
+.chess-wrong-moves > span,
+.chess-variation-list > span {
+  color: #7a8581;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chess-wrong-moves > div {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.chess-wrong-moves code {
+  border-radius: 5px;
+  padding: 0.26rem 0.46rem;
+  color: #804b39;
+  background: #efe0d6;
+  font-size: 10px;
+}
+
+.chess-line-hint {
+  margin-top: 17px;
+  border-top: 1px solid rgba(41, 79, 75, 0.15);
+  border-bottom: 1px solid rgba(41, 79, 75, 0.15);
+}
+
+.chess-line-hint summary {
+  padding: 11px 1px;
+  color: #365955;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chess-line-hint p {
+  padding: 0 1px 13px;
+  color: #506762;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.chess-reveal-button {
+  margin-top: 15px;
+}
+
+.chess-answer-panel {
+  margin-top: 17px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 7px;
+}
+
+.chess-answer-panel > div {
+  min-width: 0;
+  border: 1px solid rgba(41, 79, 75, 0.15);
+  border-radius: 9px;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.55);
+  display: flex;
+  flex-direction: column;
+}
+
+.chess-answer-panel span,
+.chess-game-source span {
+  color: #7c8682;
+  font-size: 7px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chess-answer-panel strong {
+  margin-top: 5px;
+  color: #234743;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.chess-answer-panel small,
+.chess-game-source small {
+  margin-top: 4px;
+  color: #7c8783;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.chess-variation-list {
+  margin-top: 16px;
+}
+
+.chess-book-lines {
+  margin-top: 17px;
+}
+
+.chess-book-lines > span {
+  color: #7a8581;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chess-book-lines > div {
+  margin-top: 7px;
+  border-left: 2px solid #4a7d71;
+  padding: 4px 0 4px 10px;
+}
+
+.chess-book-lines strong {
+  color: #28534c;
+  font-size: 11px;
+}
+
+.chess-book-lines p {
+  margin-top: 3px;
+  color: #344e4a;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.chess-book-lines small {
+  margin-top: 3px;
+  color: #8a928f;
+  font-size: 8px;
+  display: block;
+}
+
+.chess-variation-list > div {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.chess-variation-list strong {
+  color: #c05f43;
+  font-size: 10px;
+}
+
+.chess-variation-list code {
+  min-width: 0;
+  overflow: hidden;
+  color: #344e4a;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chess-variation-list small {
+  margin-top: 7px;
+  color: #8a928f;
+  font-size: 8px;
+  display: block;
+}
+
+.chess-game-source {
+  margin-top: 19px;
+  border-top: 1px solid rgba(41, 79, 75, 0.15);
+  padding-top: 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.chess-game-source > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.chess-game-source strong {
+  margin-top: 3px;
+  color: #354f4b;
+  font-size: 10px;
+}
+
+.chess-game-source a {
+  flex: 0 0 auto;
+  color: #a44d34;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.chess-drill-navigation {
+  margin-top: 24px;
+  border-top: 1px solid rgba(41, 79, 75, 0.15);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.chess-drill-navigation > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+
+.chess-drill-navigation > div button {
+  width: 27px;
+  height: 27px;
+  border: 1px solid rgba(41, 79, 75, 0.2);
+  border-radius: 50%;
+  color: #526965;
+  background: transparent;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.chess-drill-navigation > div button[aria-selected="true"] {
+  border-color: #294f4b;
+  color: #fff;
+  background: #294f4b;
+}
+
+.chess-drill-navigation > div button.is-correct:not([aria-selected="true"]) {
+  border-color: #4e887a;
+  color: #2f6c5e;
+  background: #e1ece7;
+}
+
+.chess-drill-navigation > div button.is-failed:not([aria-selected="true"]) {
+  border-color: #cf8b73;
+  color: #9c4e37;
+  background: #f1e1d8;
+}
+
+.chess-drill-navigation > div button.is-theory:first-of-type,
+.chess-drill-navigation > div button.is-game + button.is-theory {
+  margin-left: 8px;
+}
+
+.chess-drill-navigation > div button.is-theory:not([aria-selected="true"]) {
+  border-style: dashed;
+}
+
+.chess-engine-credit {
+  margin-top: 16px;
+  color: #7d8783;
+  font-size: 8px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.chess-engine-credit a {
+  color: #3e6862;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .daily-footer {
@@ -3124,12 +4063,18 @@ button {
 
 @media (max-width: 840px) {
   .daily-practice-grid,
+  .daily-timer-grid,
+  .daily-sayings-languages,
   .daily-car-grid {
     grid-template-columns: 1fr;
   }
 
   .daily-practice-card {
     min-height: 112px;
+  }
+
+  .daily-timer-card {
+    min-height: 290px;
   }
 
   .daily-car-card {
@@ -3167,6 +4112,15 @@ button {
   .math-concepts,
   .math-statement {
     min-height: 0;
+  }
+
+  .chess-drill-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chess-drill-panel {
+    max-width: 620px;
+    margin: 0 auto;
   }
 }
 
@@ -3215,6 +4169,28 @@ button {
     border-radius: 18px;
   }
 
+  .daily-timer-card {
+    min-height: 270px;
+    padding: 18px;
+  }
+
+  .daily-timer-summary {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .daily-timer-summary span {
+    width: 100%;
+    padding: 3px 0;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .daily-timer-summary span + span {
+    border-top: 1px solid rgba(56, 107, 104, 0.1);
+    border-left: 0;
+  }
+
   .daily-section-heading {
     gap: 9px;
   }
@@ -3251,6 +4227,38 @@ button {
     padding: 20px;
   }
 
+  .chess-drill-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .chess-refresh-button {
+    width: fit-content;
+  }
+
+  .chess-answer-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .chess-game-source {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .chess-drill-navigation {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .chess-drill-navigation > div {
+    width: 100%;
+    order: -1;
+  }
+
+  .chess-drill-navigation > button {
+    flex: 1;
+  }
+
   .daily-history-grid,
   .daily-research-summary {
     grid-template-columns: 1fr;
@@ -3258,6 +4266,10 @@ button {
 
   .daily-history-card {
     min-height: 235px;
+  }
+
+  .daily-saying-card {
+    min-height: 0;
   }
 
   .daily-research-card {
@@ -3289,11 +4301,25 @@ button {
     transition: none;
   }
 
+  .daily-timer-card,
+  .daily-timer-card > button,
+  .daily-timer-progress span {
+    transition: none;
+  }
+
   .daily-car-image img {
     transition: none;
   }
 
   .math-loading-orbit {
     animation: none;
+  }
+
+  .chess-thinking-mark {
+    animation: none;
+  }
+
+  .chess-progress-track span {
+    transition: none;
   }
 }

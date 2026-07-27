@@ -17,6 +17,7 @@ from api.daily_digest import (
     _extract_wiki_sections,
     _plain_quotes,
 )
+from api.daily_sayings import DailySaying
 
 
 def generated_content(*, car_name: str = "Citroen DS") -> dict:
@@ -121,6 +122,49 @@ def cached_digest() -> dict:
     }
 
 
+def sampled_sayings() -> list[DailySaying]:
+    sayings: list[DailySaying] = []
+    for language in ("ru", "en"):
+        for index in range(3):
+            sayings.append(
+                DailySaying(
+                    id=f"{language}-wikiquote-test-{index}",
+                    language=language,
+                    text=(
+                        f"Русская тестовая пословица номер {index}."
+                        if language == "ru"
+                        else f"English test proverb number {index}."
+                    ),
+                    translation=(
+                        "An English translation."
+                        if language == "ru"
+                        else "Перевод на русский язык."
+                    ),
+                    meaning=(
+                        "Краткое объяснение практического смысла пословицы."
+                        if language == "ru"
+                        else "A concise explanation of the proverb's practical meaning."
+                    ),
+                    origin=(
+                        "Традиционная русская пословица для повседневной речи."
+                        if language == "ru"
+                        else "A traditional English proverb used in everyday speech."
+                    ),
+                    sourceLabel=(
+                        "Викицитатник: Русские пословицы"
+                        if language == "ru"
+                        else "Wikiquote: English proverbs"
+                    ),
+                    sourceUrl=(
+                        "https://ru.wikiquote.org/wiki/example"
+                        if language == "ru"
+                        else "https://en.wikiquote.org/wiki/example"
+                    ),
+                )
+            )
+    return sayings
+
+
 class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -177,6 +221,7 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
             ]
 
         self.service._enrich_cars = AsyncMock(side_effect=enrich_cars)
+        self.service.sayings.prepare = AsyncMock(return_value=sampled_sayings())
 
     def tearDown(self) -> None:
         self.temporary_directory.cleanup()
@@ -193,7 +238,89 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(persisted["current"]["date"], "2026-07-24")
         self.assertIn("paper-001", persisted["history"]["research"])
         self.assertIn("citroen ds", persisted["history"]["cars"])
+        self.assertEqual(len(persisted["history"]["sayings"]), 6)
         self.assertTrue(persisted["current"]["cars"][0]["imageUrl"])
+        self.assertEqual(
+            [item["language"] for item in persisted["current"]["sayings"]],
+            ["ru", "ru", "ru", "en", "en", "en"],
+        )
+
+    async def test_backfills_sayings_in_current_legacy_cache_without_llm(self) -> None:
+        legacy = cached_digest()
+        legacy["date"] = "2026-07-24"
+        legacy["displayDate"] = "Friday, July 24, 2026"
+        legacy["cars"][0].update(
+            {
+                "imageUrl": (
+                    "https://upload.wikimedia.org/wikipedia/commons/Citroen_DS.jpg"
+                ),
+                "imageSourceUrl": "https://en.wikipedia.org/wiki/Citroen_DS",
+                "imageAlt": "Citroen DS car",
+            }
+        )
+        self.data_file.write_text(
+            json.dumps(
+                {
+                    "current": legacy,
+                    "history": {
+                        "research": [],
+                        "cars": [],
+                        "poems": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        response = await self.service.get()
+
+        self.assertEqual(len(response.digest.sayings), 6)
+        self.assertEqual(
+            [item.language for item in response.digest.sayings],
+            ["ru", "ru", "ru", "en", "en", "en"],
+        )
+        self.generator.assert_not_awaited()
+        persisted = json.loads(self.data_file.read_text(encoding="utf-8"))
+        self.assertEqual(len(persisted["history"]["sayings"]), 6)
+
+    async def test_resamples_legacy_sayings_version_from_current_cache(self) -> None:
+        legacy = cached_digest()
+        legacy["date"] = "2026-07-24"
+        legacy["displayDate"] = "Friday, July 24, 2026"
+        legacy["cars"][0].update(
+            {
+                "imageUrl": (
+                    "https://upload.wikimedia.org/wikipedia/commons/Citroen_DS.jpg"
+                ),
+                "imageSourceUrl": "https://en.wikipedia.org/wiki/Citroen_DS",
+                "imageAlt": "Citroen DS car",
+            }
+        )
+        sayings = sampled_sayings()
+        legacy["sayings"] = [
+            saying.model_dump(mode="json") for saying in sayings
+        ]
+        legacy["sayingsVersion"] = 1
+        self.data_file.write_text(
+            json.dumps(
+                {
+                    "current": legacy,
+                    "history": {
+                        "research": [],
+                        "cars": [],
+                        "poems": [],
+                        "sayings": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        response = await self.service.get()
+
+        self.assertEqual(response.digest.sayingsVersion, 2)
+        self.service.sayings.prepare.assert_awaited_once()
+        self.generator.assert_not_awaited()
 
     async def test_retries_when_model_repeats_persistent_history(self) -> None:
         self.data_file.write_text(

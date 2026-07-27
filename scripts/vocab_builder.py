@@ -251,6 +251,9 @@ def build_pdf_prompt(text: str, count: int, seen_words: list[str]) -> list[dict]
         f"  - short idiomatic phrases or two-word collocations from the text\n"
         f"  - occasional rare/period words\n"
         f"Skip trivially common words (the, was, house, etc.).\n\n"
+        f"Use the exact sense each item has in this passage. The Russian "
+        f"translation and all examples must teach that contextual sense, not a "
+        f"different dictionary meaning of the same spelling.\n\n"
         f"{_item_schema_hint()}\n"
         f'Return a JSON object of shape:\n'
         f'{{"items": [{{"word":"...","base":"...","correct":"...",'

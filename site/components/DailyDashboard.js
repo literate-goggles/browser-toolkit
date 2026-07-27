@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import DailyChessDrills from "./DailyChessDrills";
 import DailyMathPractice from "./DailyMathPractice";
+import DailyTimers from "./DailyTimers";
 
 const PRACTICE_LINKS = [
   {
@@ -30,6 +32,19 @@ const HISTORY_LABELS = {
   holiday: "Holiday",
   birthday: "Born today",
 };
+
+const SAYING_GROUPS = [
+  {
+    language: "ru",
+    label: "Russian",
+    note: "Крылатые фразы и пословицы",
+  },
+  {
+    language: "en",
+    label: "English",
+    note: "Catchphrases and proverbs",
+  },
+];
 
 async function responseError(response) {
   try {
@@ -134,7 +149,8 @@ export default function DailyDashboard() {
           <h1>A thoughtful start, prepared for you.</h1>
           <p>
             Practice English, revisit history, scan new machine learning work,
-            learn a car, and memorise a little Russian poetry.
+            keep a few good sayings, learn a car, and memorise a little Russian
+            poetry.
           </p>
         </div>
         {digest && (
@@ -171,6 +187,8 @@ export default function DailyDashboard() {
           ))}
         </div>
       </section>
+
+      <DailyChessDrills />
 
       {loading && !digest && <LoadingDashboard />}
 
@@ -221,6 +239,63 @@ export default function DailyDashboard() {
                       : "English Wikipedia"}
                   </SourceLink>
                 </article>
+              ))}
+            </div>
+          </section>
+
+          <section
+            className="daily-section daily-sayings-section"
+            aria-labelledby="sayings-heading"
+          >
+            <SectionHeading
+              eyebrow="Words in circulation"
+              title="Sayings worth keeping"
+              note="Three Russian and three English proverbs sampled from the full source collections."
+              headingId="sayings-heading"
+            />
+            <div className="daily-sayings-languages">
+              {SAYING_GROUPS.map((group) => (
+                <div
+                  className="daily-sayings-language"
+                  data-language={group.language}
+                  key={group.language}
+                  lang={group.language}
+                >
+                  <div className="daily-sayings-language-heading">
+                    <span>{group.label}</span>
+                    <p>{group.note}</p>
+                  </div>
+                  <div className="daily-sayings-list">
+                    {(digest.sayings || [])
+                      .filter((saying) => saying.language === group.language)
+                      .map((saying, index) => (
+                        <article className="daily-saying-card" key={saying.id}>
+                          <span className="daily-saying-number">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <blockquote>{saying.text}</blockquote>
+                          {saying.translation && (
+                            <div className="daily-saying-translation">
+                              <strong>
+                                {group.language === "ru"
+                                  ? "English translation"
+                                  : "Перевод на русский"}
+                              </strong>
+                              <span>{saying.translation}</span>
+                            </div>
+                          )}
+                          <p>{saying.meaning}</p>
+                          <div className="daily-saying-origin">
+                            <strong>Origin / use</strong>
+                            <span>{saying.origin}</span>
+                          </div>
+                          <SourceLink href={saying.sourceUrl}>
+                            {saying.sourceLabel}
+                          </SourceLink>
+                        </article>
+                      ))}
+                  </div>
+                </div>
               ))}
             </div>
           </section>
@@ -343,6 +418,8 @@ export default function DailyDashboard() {
               <blockquote lang="ru">{digest.poem.text}</blockquote>
             </div>
           </section>
+
+          <DailyTimers />
 
           <footer className="daily-footer">
             <div>
