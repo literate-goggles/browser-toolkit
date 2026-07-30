@@ -33,6 +33,7 @@ def writing_topic_result(**overrides):
         "mapBefore": [],
         "mapAfter": [],
         "bulletPoints": [],
+        "letterOpening": "",
     }
     result.update(overrides)
     return result
@@ -129,6 +130,148 @@ class DailyApiTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 502)
 
+    def test_british_voice_detection_uses_accent_or_verified_locale(self) -> None:
+        self.assertTrue(
+            main._is_british_voice(
+                {"labels": {"accent": "British"}, "verified_languages": []}
+            )
+        )
+        self.assertTrue(
+            main._is_british_voice(
+                {
+                    "labels": {},
+                    "verified_languages": [
+                        {"language": "en", "locale": "en-GB"}
+                    ],
+                }
+            )
+        )
+        self.assertFalse(
+            main._is_british_voice(
+                {"labels": {"accent": "American"}, "verified_languages": []}
+            )
+        )
+
+    def test_spoken_topic_endpoint_returns_elevenlabs_audio(self) -> None:
+        topic = {
+            "id": "spoken-topic",
+            "mode": "long",
+            "title": "A useful object",
+            "prompt": "Describe a useful object you own.",
+            "bulletPoints": [
+                "what it is",
+                "when you got it",
+                "how you use it",
+                "why it is useful",
+            ],
+        }
+        synthesis = AsyncMock(
+            return_value=(b"ID3\x04\x00\x00test-audio", "Alice - British")
+        )
+
+        with patch.object(main, "_elevenlabs_british_speech", synthesis):
+            response = self.client.post("/api/ielts/topic/audio", json=topic)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "audio/mpeg")
+        self.assertEqual(
+            response.headers["x-elevenlabs-voice"],
+            "Alice - British",
+        )
+        self.assertEqual(response.content, b"ID3\x04\x00\x00test-audio")
+        spoken_topic = synthesis.await_args.args[0]
+        self.assertIn(
+            "You should say: what it is. when you got it",
+            main._topic_speech_text(spoken_topic),
+        )
+
+    def test_speaking_evaluation_returns_minimal_band_75_rewrite(self) -> None:
+        delivery = {
+            "pronunciation": {
+                "band": 7.0,
+                "feedback": "The response is easy to understand.",
+            },
+            "naturalness": {
+                "band": 7.0,
+                "feedback": "The delivery is mostly natural.",
+            },
+            "rhythmAndStress": {
+                "band": 7.0,
+                "feedback": "Stress generally supports the meaning.",
+            },
+            "intelligibility": {
+                "band": 7.5,
+                "feedback": "The recording is consistently clear.",
+            },
+            "summary": "A clear response with mostly natural delivery.",
+        }
+        generated = {
+            "overallBand": 6.5,
+            "summary": "A relevant answer with a few grammatical errors.",
+            "criteria": {
+                "fluencyAndCoherence": {
+                    "band": 7.0,
+                    "feedback": "The answer develops one clear idea.",
+                },
+                "lexicalResource": {
+                    "band": 6.5,
+                    "feedback": "The vocabulary is sufficient for the topic.",
+                },
+                "grammaticalRangeAndAccuracy": {
+                    "band": 6.0,
+                    "feedback": "Verb forms need more control.",
+                },
+                "pronunciation": delivery["pronunciation"],
+            },
+            "deliveryAssessment": delivery,
+            "strengths": ["The reason is clear and relevant."],
+            "grammarCorrections": [
+                {
+                    "original": "I like read books",
+                    "correction": "I like reading books",
+                    "explanation": "Use a gerund after like.",
+                }
+            ],
+            "suggestions": ["Control verb forms more consistently."],
+            "targetStatus": "close",
+            "targetFocus": "Improve verb-form accuracy.",
+            "rewrittenResponse": (
+                "I like reading books because they help me relax."
+            ),
+        }
+        generator = AsyncMock(return_value=generated)
+        payload = {
+            "topic": {
+                "id": "speaking-topic",
+                "mode": "short",
+                "title": "Reading",
+                "prompt": "Do you enjoy reading books, and why?",
+                "bulletPoints": [],
+            },
+            "transcript": "I like read books because it help me relax.",
+            "stats": {
+                "recordedSeconds": 8.0,
+                "speechSeconds": 8.0,
+                "wordCount": 9,
+                "wordsPerMinute": 68,
+                "pauseCount": 0,
+                "longPauseCount": 0,
+            },
+            "audioAssessment": delivery,
+        }
+
+        with patch.object(main, "_openai_json", generator):
+            response = self.client.post("/api/ielts/evaluate", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["rewrittenResponse"],
+            "I like reading books because they help me relax.",
+        )
+        system_prompt = generator.await_args.kwargs["messages"][0]["content"]
+        self.assertIn("smallest possible number of changes", system_prompt)
+        self.assertIn("Preserve their ideas", system_prompt)
+
     def test_writing_essay_discards_visual_data(self) -> None:
         generated = writing_topic_result(
             title="Working from home",
@@ -149,6 +292,56 @@ class DailyApiTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["tableRows"], [])
+
+    def test_letter_topic_separates_fixed_instructions_and_salutation(self) -> None:
+        generated = writing_topic_result(
+            title="Request to change a volunteering schedule",
+            prompt=(
+                "You should spend about 20 minutes on this task. You volunteer "
+                "regularly at a local community centre. A change in your personal "
+                "circumstances means that you can no longer work at your usual time. "
+                "Write a letter to the manager of the community centre. In your "
+                "letter: • explain why you need to change your volunteering schedule "
+                "• suggest alternative days or times when you could volunteer "
+                "• ask whether there are any other duties you could perform. Write "
+                "at least 150 words. You do NOT need to write any addresses. Begin "
+                "your letter as follows: Dear Ms Patel,"
+            ),
+            questionType="General Training Task 1 - semi-formal letter",
+            visualType="letter",
+            visualTitle="Community centre manager",
+            bulletPoints=[
+                "Explain why you need to change your volunteering schedule.",
+                "Suggest alternative days or times when you could volunteer.",
+                "Ask whether there are any other duties you could perform.",
+            ],
+            letterOpening="",
+        )
+
+        with patch.object(main, "_openai_json", AsyncMock(return_value=generated)):
+            response = self.client.post(
+                "/api/ielts/writing/topic",
+                json={
+                    "mode": "general_semiformal_letter",
+                    "recentTopics": [],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        topic = response.json()
+        self.assertEqual(
+            topic["prompt"],
+            (
+                "You volunteer regularly at a local community centre. A change in "
+                "your personal circumstances means that you can no longer work at "
+                "your usual time. Write a letter to the manager of the community "
+                "centre."
+            ),
+        )
+        self.assertNotIn("150 words", topic["prompt"])
+        self.assertNotIn("explain why", topic["prompt"].lower())
+        self.assertEqual(topic["letterOpening"], "Dear Ms Patel,")
+        self.assertEqual(len(topic["bulletPoints"]), 3)
 
     def test_writing_task_one_requires_rectangular_table(self) -> None:
         generated = writing_topic_result(

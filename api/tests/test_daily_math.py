@@ -193,6 +193,89 @@ class DailyMathServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             persisted["current"]["subjects"][0]["source"]["locallyCached"]
         )
+        self.assertTrue(
+            all(
+                not problem.solutionOpened
+                for subject in first.digest.subjects
+                for problem in subject.problems
+            )
+        )
+
+    async def test_marks_solution_opened_durably_and_idempotently(self) -> None:
+        response = await self.service.get()
+        problem = response.digest.subjects[0].problems[0]
+
+        first = await self.service.mark_solution_opened(problem.id)
+        second = await self.service.mark_solution_opened(problem.id)
+
+        self.assertTrue(first.solutionOpened)
+        self.assertEqual(second.solutionOpenedAt, first.solutionOpenedAt)
+        reloaded = await self.service.get()
+        saved_problem = reloaded.digest.subjects[0].problems[0]
+        self.assertTrue(saved_problem.solutionOpened)
+        self.assertEqual(saved_problem.solutionOpenedAt, first.solutionOpenedAt)
+        persisted = json.loads(self.data_file.read_text(encoding="utf-8"))
+        self.assertTrue(
+            persisted["current"]["subjects"][0]["problems"][0][
+                "solutionOpened"
+            ]
+        )
+
+    async def test_reuses_only_unopened_problems_on_the_next_day(self) -> None:
+        first = await self.service.get()
+        subject_a = first.digest.subjects[0]
+        subject_b = first.digest.subjects[1]
+        await self.service.mark_solution_opened(subject_a.problems[0].id)
+        self.generator.reset_mock()
+        self.generator.return_value = generated_practice("Beta")
+        self.service._local_today = lambda: date(2026, 7, 25)
+
+        second = await self.service.get(wait_for_refresh=True)
+
+        refreshed_a = second.digest.subjects[0]
+        carried_b = second.digest.subjects[1]
+        self.assertEqual(second.digest.date, "2026-07-25")
+        self.assertEqual(self.generator.await_count, 1)
+        self.assertEqual(refreshed_a.problems[0].title, "Beta warm-up")
+        self.assertNotEqual(
+            refreshed_a.problems[0].id,
+            subject_a.problems[0].id,
+        )
+        self.assertEqual(
+            [problem.id for problem in refreshed_a.problems[1:]],
+            [problem.id for problem in subject_a.problems[1:]],
+        )
+        self.assertEqual(
+            [problem.id for problem in carried_b.problems],
+            [problem.id for problem in subject_b.problems],
+        )
+
+    async def test_skips_generation_when_every_problem_is_unopened(self) -> None:
+        first = await self.service.get()
+        original_ids = [
+            problem.id
+            for subject in first.digest.subjects
+            for problem in subject.problems
+        ]
+        self.generator.reset_mock()
+        self.service._local_today = lambda: date(2026, 7, 25)
+
+        second = await self.service.get(wait_for_refresh=True)
+
+        carried_ids = [
+            problem.id
+            for subject in second.digest.subjects
+            for problem in subject.problems
+        ]
+        self.assertEqual(second.digest.date, "2026-07-25")
+        self.assertEqual(carried_ids, original_ids)
+        self.generator.assert_not_awaited()
+
+    async def test_rejects_unknown_solution_problem_id(self) -> None:
+        await self.service.get()
+
+        with self.assertRaises(KeyError):
+            await self.service.mark_solution_opened("unknown-problem")
 
     async def test_retries_a_problem_key_found_in_persistent_history(self) -> None:
         self.manifest_file.write_text(
@@ -234,6 +317,9 @@ class DailyMathServiceTests(unittest.IsolatedAsyncioTestCase):
     async def test_serves_saved_set_if_forced_refresh_fails(self) -> None:
         first = await self.service.get()
         self.assertFalse(first.stale)
+        for subject in first.digest.subjects:
+            for problem in subject.problems:
+                await self.service.mark_solution_opened(problem.id)
         self.service._local_today = lambda: date(2026, 7, 25)
         self.generator.side_effect = RuntimeError("provider unavailable")
 

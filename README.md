@@ -9,7 +9,8 @@ Next.js/React frontend and a FastAPI backend.
 
 The homepage follows [DAILY.md](./DAILY.md) and combines:
 
-- direct access to IELTS vocabulary, speaking, and writing practice;
+- direct access to IELTS vocabulary, speaking, and writing practice, with
+  audio-only speaking prompts read by random British ElevenLabs voices;
 - five repertoire-matched drills from the latest 100 Chess.com games and five
   deeper opening-theory drills, with local Stockfish comparison;
 - bilingual "on this day" history from English and Russian Wikipedia;
@@ -20,7 +21,9 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
   and alphaXiv;
 - 30 daily source-grounded mathematics and ML problems, with worked solutions
   and transfer exercises; Algorithm day combines one book problem with one
-  LeetCode Medium and one LeetCode Hard problem, all with Python solutions;
+  LeetCode Medium and one LeetCode Hard problem, all with Python solutions.
+  Opening a worked solution is saved, while unopened problems carry into the
+  next daily set;
 - server-enforced 25-minute English- and Russian-reading timers, with a
   completion chime and durable SQLite history for future statistics;
 - short introductions to important car models;

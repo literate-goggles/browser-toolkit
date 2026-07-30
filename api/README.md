@@ -11,6 +11,7 @@ IELTS pipelines.
 | `GET` | `/api/health` | Service and provider-key readiness |
 | `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
 | `GET` | `/api/daily/math` | Return 30 daily source-grounded problems and solutions |
+| `POST` | `/api/daily/math/problems/{problemId}/solution-opened` | Save that a worked solution was opened |
 | `GET` | `/api/daily/chess` | Return five repertoire-matched game positions and five theory positions |
 | `GET` | `/api/daily/timers` | Return today's focus timers and accumulated totals |
 | `POST` | `/api/daily/timers/{activityKey}/start` | Irreversibly start today's 25-minute activity |
@@ -19,17 +20,23 @@ IELTS pipelines.
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
 | `DELETE` | `/api/vocab/bans/<sourceId>/<word>` | Unban one word |
 | `POST` | `/api/ielts/topic` | Generate a Speaking Part 1, 2, or 3 topic with GPT-5.6 Sol |
+| `POST` | `/api/ielts/topic/audio` | Read a speaking topic with a random British ElevenLabs voice |
 | `POST` | `/api/ielts/transcribe` | Transcribe audio and assess audible delivery with OpenAI |
 | `POST` | `/api/ielts/evaluate` | Combine transcript and audio evidence into band-7.5 feedback |
 | `POST` | `/api/ielts/writing/topic` | Generate Academic visuals, General Training letters, or Task 2 essays |
 | `POST` | `/api/ielts/writing/evaluate` | Evaluate, minimally rewrite for band 7.5, and save the completed attempt |
 
-The browser converts its recording to 16 kHz mono WAV, then calls
+Speaking prompts are never rendered as text. The backend selects a random
+British voice available to the ElevenLabs account and synthesizes the complete
+question with `eleven_multilingual_v2`. The browser plays it once, then starts
+microphone recording and the answer timer together when playback ends. It
+converts the completed recording to 16 kHz mono WAV, then calls
 transcription/audio assessment and final evaluation separately so it can show
 the real pipeline stage and retry evaluation without uploading audio again.
 Recordings are not persisted by the backend. GPT-4o Transcribe produces the
 text, GPT-Audio-1.5 listens for pronunciation, rhythm, intelligibility, and
-naturalness, and GPT-5.6 Sol produces structured IELTS feedback.
+naturalness, and GPT-5.6 Sol produces structured IELTS feedback plus a complete
+band-7.5 response rewritten with the smallest necessary changes.
 Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
 
@@ -92,9 +99,12 @@ backend chooses the LeetCode pair deterministically without repetition and
 requires syntactically valid Python 3 for every main and follow-up solution.
 The curated public problem catalog lives in `api/leetcode_problems.json`.
 
-The saved daily set and non-repetition keys live in `api/math_daily.json`. If a
-midnight refresh is still running, the API serves the previous set until the
-new one is ready.
+The saved daily set, non-repetition keys, and per-problem solution-open state
+live in `api/math_daily.json`. Opening the main worked solution counts the
+problem as solved. At the next refresh, each unopened problem is retained at
+the same difficulty; only solved slots receive new problems. If a midnight
+refresh is still running, the API serves the previous set until the new one is
+ready.
 
 The chess drill service validates the checked-in book at
 `api/chess_repertoire.json`, reads Chess.com's public monthly archives
@@ -141,6 +151,8 @@ OPENAI_TEXT_MODEL=gpt-5.6-sol
 OPENAI_TEXT_REASONING_EFFORT=low
 OPENAI_TRANSCRIPTION_MODEL=gpt-4o-transcribe
 OPENAI_AUDIO_MODEL=gpt-audio-1.5
+ELEVENLABS_API_KEY=
+ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
 DAILY_TIMEZONE=UTC
 DAILY_TIMERS_DB_FILE=api/daily_timers.sqlite3
 IELTS_WRITING_DB_FILE=api/ielts_writing.sqlite3

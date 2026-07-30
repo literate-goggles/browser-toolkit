@@ -402,6 +402,12 @@ function WritingVisual({ topic }) {
             <li key={point}>{point}</li>
           ))}
         </ul>
+        {topic.letterOpening && (
+          <p className="writing-letter-opening">
+            <span>Begin your letter with</span>
+            <strong>{topic.letterOpening}</strong>
+          </p>
+        )}
       </div>
     );
   }

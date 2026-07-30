@@ -751,6 +751,103 @@ button {
   line-height: 1.55;
 }
 
+.ielts-spoken-topic {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 90px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 11px;
+  background: rgba(37, 99, 235, 0.055);
+  padding: 15px;
+}
+
+.ielts-spoken-topic > div:nth-child(2) {
+  min-width: 0;
+}
+
+.ielts-spoken-topic h2 {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.ielts-spoken-topic p {
+  margin-top: 4px;
+  color: var(--muted-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ielts-spoken-topic > button {
+  grid-column: 1 / -1;
+}
+
+.ielts-spoken-topic-mark {
+  width: 43px;
+  height: 43px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  box-shadow: 0 7px 18px rgba(37, 99, 235, 0.2);
+}
+
+.ielts-spoken-topic-mark span {
+  width: 3px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ielts-spoken-topic-mark span:nth-child(1),
+.ielts-spoken-topic-mark span:nth-child(4) {
+  height: 9px;
+}
+
+.ielts-spoken-topic-mark span:nth-child(2) {
+  height: 19px;
+}
+
+.ielts-spoken-topic-mark span:nth-child(3) {
+  height: 14px;
+}
+
+.ielts-spoken-topic[data-state="playing-topic"]
+  .ielts-spoken-topic-mark
+  span {
+  animation: ielts-spoken-wave 700ms ease-in-out infinite alternate;
+}
+
+.ielts-spoken-topic[data-state="playing-topic"]
+  .ielts-spoken-topic-mark
+  span:nth-child(2) {
+  animation-delay: -420ms;
+}
+
+.ielts-spoken-topic[data-state="playing-topic"]
+  .ielts-spoken-topic-mark
+  span:nth-child(3) {
+  animation-delay: -220ms;
+}
+
+.ielts-spoken-topic[data-state="playing-topic"]
+  .ielts-spoken-topic-mark
+  span:nth-child(4) {
+  animation-delay: -560ms;
+}
+
+@keyframes ielts-spoken-wave {
+  from {
+    transform: scaleY(0.48);
+  }
+
+  to {
+    transform: scaleY(1.2);
+  }
+}
+
 .ielts-topic-empty {
   color: var(--muted-text);
   font-size: 14px;
@@ -1141,6 +1238,41 @@ button {
   line-height: 1.65;
 }
 
+.ielts-response-version {
+  margin-top: 11px;
+}
+
+.ielts-response-version + .ielts-response-version {
+  margin-top: 13px;
+}
+
+.ielts-response-version > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted-text);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.ielts-response-version > p {
+  color: var(--text-color);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.ielts-response-rewrite {
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.055);
+  padding: 13px 14px;
+}
+
+.ielts-response-rewrite > span {
+  color: var(--primary-color);
+}
+
 .ielts-feedback-list {
   padding-left: 18px;
   margin-top: 9px;
@@ -1254,7 +1386,8 @@ button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ielts-live i {
+  .ielts-live i,
+  .ielts-spoken-topic-mark span {
     animation: none;
   }
 }
@@ -1603,6 +1736,27 @@ button {
 
 .writing-letter-points {
   margin-top: 0;
+}
+
+.writing-letter-opening {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border-color);
+}
+
+.writing-letter-opening span {
+  color: var(--muted-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.writing-letter-opening strong {
+  font-size: 13px;
 }
 
 .writing-table-wrap {
@@ -3278,6 +3432,67 @@ button {
   color: #2d3f3c;
   font-size: 12px;
   line-height: 1.68;
+}
+
+.math-solution-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 8px 9px;
+  border: 1px solid rgba(180, 107, 78, 0.24);
+  border-radius: 6px;
+  background: rgba(180, 107, 78, 0.06);
+  color: #69736f;
+}
+
+.math-solution-state > span {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b46b4e;
+}
+
+.math-solution-state > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.math-solution-state strong {
+  display: block;
+  color: #314a46;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.math-solution-state p {
+  margin: 2px 0 0;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.math-solution-state[data-opened="true"] {
+  border-color: rgba(49, 94, 90, 0.26);
+  background: rgba(49, 94, 90, 0.07);
+}
+
+.math-solution-state[data-opened="true"] > span {
+  background: #315e5a;
+}
+
+.math-solution-state button {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid #b46b4e;
+  border-radius: 999px;
+  background: transparent;
+  color: #8c5139;
+  font: inherit;
+  font-size: 8px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .math-text {

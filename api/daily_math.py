@@ -73,6 +73,8 @@ class MathProblem(GeneratedMathProblem):
     sourceTitle: str = Field(min_length=2, max_length=200)
     sourceUrl: str = Field(min_length=10, max_length=500)
     sourceDifficulty: Literal["", "Medium", "Hard"]
+    solutionOpened: bool = False
+    solutionOpenedAt: str = Field(default="", max_length=40)
 
 
 class LeetCodeCatalogEntry(StrictModel):
@@ -114,6 +116,12 @@ class MathDailyResponse(StrictModel):
     digest: MathDailyDigest
     stale: bool = False
     warning: str = ""
+
+
+class MathSolutionOpenedResponse(StrictModel):
+    problemId: str = Field(min_length=8, max_length=120)
+    solutionOpened: Literal[True] = True
+    solutionOpenedAt: str = Field(min_length=10, max_length=40)
 
 
 def _plain_quotes(value: Any) -> Any:
@@ -163,6 +171,8 @@ def _migrate_problem_payload(
     problem.setdefault("sourceTitle", source_title)
     problem.setdefault("sourceUrl", source_url)
     problem.setdefault("sourceDifficulty", "")
+    problem.setdefault("solutionOpened", False)
+    problem.setdefault("solutionOpenedAt", "")
     follow_up = problem.get("followUp")
     if isinstance(follow_up, dict):
         follow_up.setdefault("pythonSolution", "")
@@ -343,6 +353,61 @@ class DailyMathService:
         except ValidationError as exc:
             print(f"[daily-math] invalid cached digest: {exc}", flush=True)
             return None
+
+    def _carryover_problems(
+        self,
+        state: dict[str, Any],
+        target: date,
+    ) -> dict[str, dict[str, MathProblem]]:
+        current = self._current_digest(state)
+        if current is None or current.date >= target.isoformat():
+            return {}
+        carryovers: dict[str, dict[str, MathProblem]] = {}
+        for subject in current.subjects:
+            unopened = {
+                problem.difficulty: problem.model_copy(deep=True)
+                for problem in subject.problems
+                if not problem.solutionOpened
+            }
+            if unopened:
+                carryovers[subject.subjectId] = unopened
+        return carryovers
+
+    def _subject_from_carryovers(
+        self,
+        source: dict[str, Any],
+        carryovers: dict[str, MathProblem],
+    ) -> MathSubjectPractice:
+        difficulties = ("warm-up", "core", "stretch")
+        return MathSubjectPractice(
+            subjectId=str(source["id"]),
+            title=str(source["title"]),
+            language=str(source["language"]),
+            source=self._source_info(source),
+            problems=[carryovers[difficulty] for difficulty in difficulties],
+        )
+
+    def _merge_carryovers(
+        self,
+        practice: MathSubjectPractice,
+        carryovers: dict[str, MathProblem],
+    ) -> MathSubjectPractice:
+        if not carryovers:
+            return practice
+        generated_by_difficulty = {
+            problem.difficulty: problem for problem in practice.problems
+        }
+        return MathSubjectPractice(
+            subjectId=practice.subjectId,
+            title=practice.title,
+            language=practice.language,
+            source=practice.source,
+            problems=[
+                carryovers.get(difficulty)
+                or generated_by_difficulty[difficulty]
+                for difficulty in ("warm-up", "core", "stretch")
+            ],
+        )
 
     def _source_text_paths(self, source: dict[str, Any]) -> list[Path]:
         return [
@@ -778,6 +843,7 @@ class DailyMathService:
     async def _refresh(
         self, state: dict[str, Any], target: date
     ) -> MathDailyDigest:
+        carryovers = self._carryover_problems(state, target)
         pending_subjects = self._pending_subjects(state, target)
         missing_sources = [
             source
@@ -790,13 +856,22 @@ class DailyMathService:
             source: dict[str, Any],
         ) -> tuple[str, MathSubjectPractice]:
             source_id = str(source["id"])
+            subject_carryovers = carryovers.get(source_id) or {}
+            if len(subject_carryovers) == 3:
+                return (
+                    source_id,
+                    self._subject_from_carryovers(source, subject_carryovers),
+                )
             practice = await self._generate_subject(
                 source,
                 target,
                 state["history"].get(source_id) or [],
                 semaphore,
             )
-            return source_id, practice
+            return (
+                source_id,
+                self._merge_carryovers(practice, subject_carryovers),
+            )
 
         tasks = [asyncio.create_task(generate(source)) for source in missing_sources]
         failures: list[str] = []
@@ -915,6 +990,72 @@ class DailyMathService:
                     ),
                 )
             raise
+
+    async def mark_solution_opened(
+        self,
+        problem_id: str,
+    ) -> MathSolutionOpenedResponse:
+        if not 8 <= len(problem_id) <= 120 or not re.fullmatch(
+            r"[A-Za-z0-9._-]+",
+            problem_id,
+        ):
+            raise KeyError(problem_id)
+
+        async with self._refresh_lock:
+            state = self._load_state()
+            opened_at = datetime.now(timezone.utc).isoformat().replace(
+                "+00:00",
+                "Z",
+            )
+            found = False
+
+            current = state.get("current")
+            if isinstance(current, dict):
+                for raw_subject in current.get("subjects") or []:
+                    if not isinstance(raw_subject, dict):
+                        continue
+                    for raw_problem in raw_subject.get("problems") or []:
+                        if (
+                            isinstance(raw_problem, dict)
+                            and raw_problem.get("id") == problem_id
+                        ):
+                            found = True
+                            if raw_problem.get("solutionOpened"):
+                                opened_at = str(
+                                    raw_problem.get("solutionOpenedAt")
+                                    or opened_at
+                                )
+                            else:
+                                raw_problem["solutionOpened"] = True
+                                raw_problem["solutionOpenedAt"] = opened_at
+
+            pending = state.get("pending")
+            raw_pending_subjects = (
+                pending.get("subjects")
+                if isinstance(pending, dict)
+                else None
+            )
+            if isinstance(raw_pending_subjects, dict):
+                for raw_subject in raw_pending_subjects.values():
+                    if not isinstance(raw_subject, dict):
+                        continue
+                    for raw_problem in raw_subject.get("problems") or []:
+                        if (
+                            isinstance(raw_problem, dict)
+                            and raw_problem.get("id") == problem_id
+                        ):
+                            found = True
+                            raw_problem["solutionOpened"] = True
+                            raw_problem["solutionOpenedAt"] = opened_at
+
+            if not found:
+                raise KeyError(problem_id)
+            self._save_state(state)
+            return MathSolutionOpenedResponse(
+                problemId=problem_id,
+                solutionOpened=True,
+                solutionOpenedAt=opened_at,
+            )
 
     async def scheduler(self) -> None:
         await asyncio.sleep(7)

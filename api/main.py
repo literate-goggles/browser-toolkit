@@ -12,6 +12,7 @@ import base64
 import json
 import os
 import re
+import secrets
 import threading
 import time
 import uuid
@@ -22,7 +23,7 @@ from typing import Any, Literal
 
 import httpx
 from dotenv import dotenv_values, load_dotenv
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -35,7 +36,11 @@ from pydantic import (
 try:
     from .chess_drills import ChessDrillResponse, ChessDrillService
     from .daily_digest import DailyDigestService, DailyResponse
-    from .daily_math import DailyMathService, MathDailyResponse
+    from .daily_math import (
+        DailyMathService,
+        MathDailyResponse,
+        MathSolutionOpenedResponse,
+    )
     from .daily_timers import (
         DailyTimerService,
         DailyTimersResponse,
@@ -46,7 +51,11 @@ try:
 except ImportError:
     from chess_drills import ChessDrillResponse, ChessDrillService
     from daily_digest import DailyDigestService, DailyResponse
-    from daily_math import DailyMathService, MathDailyResponse
+    from daily_math import (
+        DailyMathService,
+        MathDailyResponse,
+        MathSolutionOpenedResponse,
+    )
     from daily_timers import (
         DailyTimerService,
         DailyTimersResponse,
@@ -131,12 +140,21 @@ OPENAI_TRANSCRIPTION_MODEL = _configuration(
     "OPENAI_TRANSCRIPTION_MODEL", "gpt-4o-transcribe"
 )
 OPENAI_AUDIO_MODEL = _configuration("OPENAI_AUDIO_MODEL", "gpt-audio-1.5")
+ELEVENLABS_API_KEY = _configuration("ELEVENLABS_API_KEY")
+ELEVENLABS_TTS_MODEL = _configuration(
+    "ELEVENLABS_TTS_MODEL",
+    "eleven_multilingual_v2",
+)
 
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
+MAX_TOPIC_AUDIO_BYTES = 5 * 1024 * 1024
 MAX_TRANSCRIPT_CHARS = 16_000
 OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions"
 OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
+ELEVENLABS_VOICES_URL = "https://api.elevenlabs.io/v2/voices"
+ELEVENLABS_TTS_URL = "https://api.elevenlabs.io/v1/text-to-speech"
+ELEVENLABS_VOICE_CACHE_SECONDS = 6 * 60 * 60
 
 SAFE_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 WORD_RE = re.compile(r"\b[\w']+\b", re.UNICODE)
@@ -295,6 +313,7 @@ app = FastAPI(
 _store_lock = threading.Lock()
 _rate_limit_lock = threading.Lock()
 _provider_requests: defaultdict[str, deque[float]] = defaultdict(deque)
+_elevenlabs_voice_cache: tuple[float, list[tuple[str, str]]] = (0.0, [])
 
 
 class StrictModel(BaseModel):
@@ -388,6 +407,7 @@ class EvaluationResult(StrictModel):
     suggestions: list[str] = Field(min_length=1, max_length=5)
     targetStatus: Literal["on track", "close", "needs work"]
     targetFocus: str = Field(min_length=1, max_length=500)
+    rewrittenResponse: str = Field(min_length=1, max_length=MAX_TRANSCRIPT_CHARS)
 
     @field_validator("overallBand")
     @classmethod
@@ -436,6 +456,7 @@ class WritingTopic(StrictModel):
     mapBefore: list[MapFeature] = Field(max_length=8)
     mapAfter: list[MapFeature] = Field(max_length=8)
     bulletPoints: list[str] = Field(max_length=3)
+    letterOpening: str = Field(default="", max_length=120)
 
     @field_validator("tableColumns")
     @classmethod
@@ -477,6 +498,25 @@ class WritingTopic(StrictModel):
                 raise ValueError("Map tasks need before and after features")
         elif self.visualType == "letter" and len(self.bulletPoints) != 3:
             raise ValueError("Letter tasks need exactly three bullet points")
+        if self.visualType == "letter":
+            if not re.match(r"(?i)^dear\s+.+,$", self.letterOpening.strip()):
+                raise ValueError("Letter tasks need a complete opening salutation")
+            forbidden_prompt_text = (
+                "you should spend about",
+                "in your letter:",
+                "write at least 150 words",
+                "you do not need to write any addresses",
+                "begin your letter as follows",
+            )
+            if any(
+                phrase in self.prompt.casefold()
+                for phrase in forbidden_prompt_text
+            ):
+                raise ValueError(
+                    "Letter prompt must not duplicate fixed instructions"
+                )
+        elif self.letterOpening:
+            raise ValueError("Only letter tasks may include a letter opening")
         if self.visualType != "none" and not self.visualTitle:
             raise ValueError("Visual and letter tasks need a title")
         return self
@@ -494,6 +534,53 @@ class WritingEvaluationRequest(StrictModel):
         if not value:
             raise ValueError("essay is empty")
         return value
+
+
+def _normalize_letter_result(result: dict[str, Any]) -> None:
+    raw_prompt = str(result.get("prompt") or "").strip()
+    opening = str(result.get("letterOpening") or "").strip()
+    if not opening:
+        opening_match = re.search(
+            (
+                r"\bbegin your letter (?:as follows|with)\s*:\s*"
+                r"(dear\s+[^.\n]{1,80},)"
+            ),
+            raw_prompt,
+            flags=re.IGNORECASE,
+        )
+        if opening_match:
+            opening = opening_match.group(1)
+
+    prompt = re.sub(
+        r"^\s*you should spend about\s+20 minutes on this task\.\s*",
+        "",
+        raw_prompt,
+        flags=re.IGNORECASE,
+    )
+    cutoffs: list[int] = []
+    for pattern in (
+        r"\bin your letter\s*:",
+        r"\bwrite at least\s+150 words\b",
+        r"\byou do not need to write any addresses\b",
+        r"\bbegin your letter (?:as follows|with)\s*:",
+        r"[•●▪]\s*",
+    ):
+        match = re.search(pattern, prompt, flags=re.IGNORECASE)
+        if match:
+            cutoffs.append(match.start())
+    for point in result.get("bulletPoints") or []:
+        point_text = str(point).strip().rstrip(".")
+        if len(point_text) < 8:
+            continue
+        position = prompt.casefold().find(point_text.casefold())
+        if position >= 0:
+            cutoffs.append(position)
+    if cutoffs:
+        prompt = prompt[: min(cutoffs)]
+    result["prompt"] = re.sub(r"\s+", " ", prompt).strip(
+        " \t\r\n-•●▪"
+    )
+    result["letterOpening"] = re.sub(r"\s+", " ", opening)
 
 
 class WritingCriteriaFeedback(StrictModel):
@@ -608,6 +695,136 @@ def _upstream_detail(response: httpx.Response, provider: str) -> str:
     except (ValueError, AttributeError):
         pass
     return f"{provider} returned HTTP {response.status_code}"
+
+
+def _is_british_voice(voice: dict[str, Any]) -> bool:
+    labels = voice.get("labels")
+    label_values = labels.values() if isinstance(labels, dict) else []
+    descriptors = [str(value).casefold() for value in label_values]
+    for language in voice.get("verified_languages") or []:
+        if not isinstance(language, dict):
+            continue
+        descriptors.extend(
+            str(language.get(key) or "").casefold()
+            for key in ("accent", "locale")
+        )
+    return any(
+        value == "en-gb"
+        or "british" in value
+        or "english" in value
+        or value in {"uk", "united kingdom"}
+        for value in descriptors
+    )
+
+
+async def _elevenlabs_british_voices() -> list[tuple[str, str]]:
+    global _elevenlabs_voice_cache
+
+    cached_at, cached_voices = _elevenlabs_voice_cache
+    if cached_voices and time.monotonic() - cached_at < ELEVENLABS_VOICE_CACHE_SECONDS:
+        return cached_voices
+
+    api_key = _require_provider_key(ELEVENLABS_API_KEY, "ElevenLabs")
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+            response = await client.get(
+                ELEVENLABS_VOICES_URL,
+                params={"page_size": 100, "include_total_count": "false"},
+                headers={"xi-api-key": api_key},
+            )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="ElevenLabs timed out") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach ElevenLabs",
+        ) from exc
+    if response.is_error:
+        raise HTTPException(
+            status_code=502,
+            detail=_upstream_detail(response, "ElevenLabs"),
+        )
+    try:
+        raw_voices = response.json().get("voices") or []
+        voices = [
+            (str(voice["voice_id"]), str(voice.get("name") or "British voice"))
+            for voice in raw_voices
+            if isinstance(voice, dict)
+            and voice.get("voice_id")
+            and _is_british_voice(voice)
+        ]
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="ElevenLabs returned an invalid voice list",
+        ) from exc
+    if not voices:
+        raise HTTPException(
+            status_code=503,
+            detail="No British ElevenLabs voices are available for this account",
+        )
+    _elevenlabs_voice_cache = (time.monotonic(), voices)
+    return voices
+
+
+def _topic_speech_text(topic: SpeakingTopic) -> str:
+    if topic.mode != "long":
+        return topic.prompt
+    cues = ". ".join(point.rstrip(".") for point in topic.bulletPoints)
+    return f"{topic.prompt} You should say: {cues}."
+
+
+async def _elevenlabs_british_speech(
+    topic: SpeakingTopic,
+) -> tuple[bytes, str]:
+    api_key = _require_provider_key(ELEVENLABS_API_KEY, "ElevenLabs")
+    voice_id, voice_name = secrets.choice(await _elevenlabs_british_voices())
+    if not re.fullmatch(r"[A-Za-z0-9_-]{8,80}", voice_id):
+        raise HTTPException(
+            status_code=502,
+            detail="ElevenLabs returned an invalid voice ID",
+        )
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            response = await client.post(
+                f"{ELEVENLABS_TTS_URL}/{voice_id}/stream",
+                params={"output_format": "mp3_44100_128"},
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                    "Accept": "audio/mpeg",
+                },
+                json={
+                    "text": _topic_speech_text(topic),
+                    "model_id": ELEVENLABS_TTS_MODEL,
+                    "voice_settings": {
+                        "stability": 0.58,
+                        "similarity_boost": 0.78,
+                        "style": 0.08,
+                        "use_speaker_boost": True,
+                        "speed": 0.96,
+                    },
+                },
+            )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(status_code=504, detail="ElevenLabs timed out") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach ElevenLabs",
+        ) from exc
+    if response.is_error:
+        raise HTTPException(
+            status_code=502,
+            detail=_upstream_detail(response, "ElevenLabs"),
+        )
+    audio = response.content
+    if not audio or len(audio) > MAX_TOPIC_AUDIO_BYTES:
+        raise HTTPException(
+            status_code=502,
+            detail="ElevenLabs returned invalid topic audio",
+        )
+    return audio, voice_name
 
 
 def _parse_json_content(content: Any) -> dict[str, Any]:
@@ -994,6 +1211,7 @@ def _evaluation_schema() -> dict[str, Any]:
                 "enum": ["on track", "close", "needs work"],
             },
             "targetFocus": {"type": "string"},
+            "rewrittenResponse": {"type": "string"},
         },
         "required": [
             "overallBand",
@@ -1005,6 +1223,7 @@ def _evaluation_schema() -> dict[str, Any]:
             "suggestions",
             "targetStatus",
             "targetFocus",
+            "rewrittenResponse",
         ],
         "additionalProperties": False,
     }
@@ -1102,6 +1321,7 @@ def _writing_topic_schema() -> dict[str, Any]:
                 "items": {"type": "string"},
                 "maxItems": 3,
             },
+            "letterOpening": {"type": "string"},
         },
         "required": [
             "title",
@@ -1117,6 +1337,7 @@ def _writing_topic_schema() -> dict[str, Any]:
             "mapBefore",
             "mapAfter",
             "bulletPoints",
+            "letterOpening",
         ],
         "additionalProperties": False,
     }
@@ -1252,6 +1473,7 @@ async def health() -> dict[str, Any]:
         "ok": True,
         "providers": {
             "openai": bool(OPENAI_API_KEY),
+            "elevenlabs": bool(ELEVENLABS_API_KEY),
         },
     }
 
@@ -1289,6 +1511,32 @@ async def get_daily_math() -> MathDailyResponse:
         raise HTTPException(
             status_code=502,
             detail="Could not prepare today's math practice. Please try again shortly.",
+        ) from exc
+
+
+@app.post(
+    "/api/daily/math/problems/{problem_id}/solution-opened",
+    response_model=MathSolutionOpenedResponse,
+)
+async def mark_daily_math_solution_opened(
+    problem_id: str,
+) -> MathSolutionOpenedResponse:
+    if not daily_math_service:
+        raise HTTPException(
+            status_code=503, detail="The daily math service is unavailable"
+        )
+    try:
+        return await daily_math_service.mark_solution_opened(problem_id)
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="The math problem was not found in the saved daily set.",
+        ) from exc
+    except Exception as exc:
+        print(f"[daily-math] could not save solution view: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save that the solution was opened.",
         ) from exc
 
 
@@ -1459,6 +1707,24 @@ async def generate_topic(request: Request, payload: TopicRequest) -> SpeakingTop
         raise HTTPException(status_code=502, detail="The generated topic was invalid") from exc
 
 
+@app.post("/api/ielts/topic/audio")
+async def synthesize_spoken_topic(
+    request: Request,
+    topic: SpeakingTopic,
+) -> Response:
+    _enforce_provider_rate_limit(request, "topic-audio", limit=30)
+    audio, voice_name = await _elevenlabs_british_speech(topic)
+    safe_voice_name = re.sub(r"[^\x20-\x7E]", "", voice_name)[:100]
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={
+            "Cache-Control": "no-store",
+            "X-ElevenLabs-Voice": safe_voice_name,
+        },
+    )
+
+
 @app.post("/api/ielts/transcribe")
 async def transcribe_recording(request: Request) -> dict[str, Any]:
     _enforce_provider_rate_limit(request, "transcribe", limit=24)
@@ -1533,7 +1799,13 @@ async def evaluate_speech(
                     "never penalize a non-native accent when it remains clear. "
                     "Make feedback specific, practical, concise, and grounded in exact wording "
                     "from the transcript. If grammar is already correct, leave corrections "
-                    "empty rather than inventing errors."
+                    "empty rather than inventing errors. Also produce a complete band-7.5 "
+                    "version of the candidate's response using the smallest possible number "
+                    "of changes. Preserve their ideas, order, tone, sentence structure, and "
+                    "every phrase that already works. Correct only what materially improves "
+                    "grammar, precision, coherence, or task fulfilment. Do not rewrite it as "
+                    "native-speaker prose and do not add new ideas unless the original is too "
+                    "short to answer the task."
                 ),
             },
             {
@@ -1553,7 +1825,9 @@ async def evaluate_speech(
                     "assessment exactly into deliveryAssessment, and use its pronunciation "
                     "band and feedback for the pronunciation criterion. "
                     "Explain the most useful grammar corrections and a few concrete changes "
-                    "that would move this response toward 7.5."
+                    "that would move this response toward 7.5. Put the complete minimally "
+                    "changed version in rewrittenResponse. Keep it close enough to the "
+                    "transcript that the candidate can learn directly from the differences."
                 ),
             },
         ],
@@ -1638,7 +1912,11 @@ async def generate_writing_topic(
         format_instruction = (
             "Create one realistic IELTS General Training Writing Task 1 situation "
             f"requiring a letter to {relationship}. Provide exactly three concise "
-            "bulletPoints stating what the letter must cover. Set visualTitle to the "
+            "bulletPoints stating what the letter must cover. The prompt must contain "
+            "only the situation, addressee, and reason for writing. Do not put the "
+            "bullet points, time limit, minimum word count, address instruction, or "
+            "opening salutation inside prompt. Put the exact opening salutation, "
+            "including its final comma, in letterOpening. Set visualTitle to the "
             "recipient or situation."
         )
     else:
@@ -1703,6 +1981,9 @@ async def generate_writing_topic(
         result.update({"mapBefore": [], "mapAfter": []})
     if visual_type != "letter":
         result["bulletPoints"] = []
+        result["letterOpening"] = ""
+    else:
+        _normalize_letter_result(result)
     if visual_type == "none":
         result["visualTitle"] = ""
     try:

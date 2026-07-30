@@ -193,6 +193,7 @@ export default function IeltsSpeaking() {
   const [evaluation, setEvaluation] = useState(null);
   const [error, setError] = useState(null);
   const [errorKind, setErrorKind] = useState(null);
+  const [topicVoice, setTopicVoice] = useState("");
 
   const recorderRef = useRef(null);
   const streamRef = useRef(null);
@@ -204,11 +205,17 @@ export default function IeltsSpeaking() {
   const recordingBlobRef = useRef(null);
   const sessionRef = useRef(null);
   const startRecordingRef = useRef(null);
+  const topicAudioRef = useRef(null);
+  const topicAudioUrlRef = useRef(null);
+  const pendingPromptStreamRef = useRef(null);
   const mountedRef = useRef(true);
 
   const modeConfig = MODES[mode];
   const isBusy = [
     "generating",
+    "synthesizing-topic",
+    "playing-topic",
+    "topic-ready",
     "requesting-mic",
     "recording",
     "transcribing",
@@ -239,6 +246,21 @@ export default function IeltsSpeaking() {
   }, []);
 
   const resetAttempt = useCallback(() => {
+    if (topicAudioRef.current) {
+      topicAudioRef.current.pause();
+      topicAudioRef.current.removeAttribute("src");
+      topicAudioRef.current = null;
+    }
+    if (topicAudioUrlRef.current) {
+      URL.revokeObjectURL(topicAudioUrlRef.current);
+      topicAudioUrlRef.current = null;
+    }
+    if (pendingPromptStreamRef.current) {
+      pendingPromptStreamRef.current
+        .getTracks()
+        .forEach((track) => track.stop());
+      pendingPromptStreamRef.current = null;
+    }
     setEvaluation(null);
     setTranscription(null);
     setError(null);
@@ -250,6 +272,7 @@ export default function IeltsSpeaking() {
       audioUrlRef.current = null;
     }
     setAudioUrl(null);
+    setTopicVoice("");
   }, []);
 
   const runPipeline = useCallback(
@@ -306,61 +329,186 @@ export default function IeltsSpeaking() {
     []
   );
 
-  const generateTopic = useCallback(async () => {
-    if (isBusy) return;
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setError(
-        "This browser does not support microphone recording. Try current Chrome, Safari, or Firefox over HTTPS."
-      );
-      setErrorKind("recording");
-      setPhase("error");
+  const handTopicToRecorder = useCallback((selectedTopic, preparedStream) => {
+    if (!mountedRef.current) {
+      preparedStream.getTracks().forEach((track) => track.stop());
       return;
     }
-    let preparedStream = null;
-    resetAttempt();
+    pendingPromptStreamRef.current = null;
+    void startRecordingRef.current?.(selectedTopic, preparedStream);
+  }, []);
+
+  const playTopicAudio = useCallback(
+    async (selectedTopic, audioBlob, preparedStream, voiceName) => {
+      const promptUrl = URL.createObjectURL(audioBlob);
+      const promptAudio = new Audio(promptUrl);
+      topicAudioRef.current = promptAudio;
+      topicAudioUrlRef.current = promptUrl;
+      pendingPromptStreamRef.current = preparedStream;
+      setTopicVoice(voiceName);
+      setError(null);
+      setErrorKind(null);
+
+      promptAudio.preload = "auto";
+      promptAudio.onended = () => {
+        handTopicToRecorder(selectedTopic, preparedStream);
+      };
+      promptAudio.onerror = () => {
+        preparedStream.getTracks().forEach((track) => track.stop());
+        pendingPromptStreamRef.current = null;
+        setError(
+          "The spoken question could not be played. Generate a new topic and try again."
+        );
+        setErrorKind("topic");
+        setPhase("error");
+      };
+
+      setPhase("playing-topic");
+      try {
+        await promptAudio.play();
+      } catch (playbackError) {
+        if (playbackError?.name === "NotAllowedError") {
+          setError(
+            "Your browser blocked automatic audio. Press \"Play spoken question\" once; recording will still start automatically when it ends."
+          );
+          setErrorKind("topic-playback");
+          setPhase("topic-ready");
+          return;
+        }
+        preparedStream.getTracks().forEach((track) => track.stop());
+        pendingPromptStreamRef.current = null;
+        throw playbackError;
+      }
+    },
+    [handTopicToRecorder]
+  );
+
+  const resumeTopicPlayback = useCallback(async () => {
+    const promptAudio = topicAudioRef.current;
+    if (!promptAudio) return;
     setError(null);
     setErrorKind(null);
+    setPhase("playing-topic");
     try {
-      setPhase("requesting-mic");
-      preparedStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-        video: false,
-      });
-      if (!mountedRef.current) {
-        preparedStream.getTracks().forEach((track) => track.stop());
+      await promptAudio.play();
+    } catch (playbackError) {
+      setError(
+        playbackError?.message || "The spoken question could not be played."
+      );
+      setErrorKind("topic-playback");
+      setPhase("topic-ready");
+    }
+  }, []);
+
+  const prepareSpokenTopic = useCallback(
+    async (existingTopic = null) => {
+      if (isBusy) return;
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+        setError(
+          "This browser does not support microphone recording. Try current Chrome, Safari, or Firefox over HTTPS."
+        );
+        setErrorKind("recording");
+        setPhase("error");
         return;
       }
-      setPhase("generating");
-      const response = await fetch("/api/ielts/topic", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, recentTopics: recentTopics() }),
-      });
-      if (!response.ok) throw new Error(await responseError(response));
-      const nextTopic = await response.json();
-      if (!mountedRef.current) return;
-      rememberTopic(nextTopic.prompt);
-      setTopic(nextTopic);
-      setRemainingMs(MODES[mode].seconds * 1000);
-      await startRecordingRef.current?.(nextTopic, preparedStream);
-      preparedStream = null;
-    } catch (topicError) {
-      preparedStream?.getTracks().forEach((track) => track.stop());
-      if (!mountedRef.current) return;
-      const microphoneDenied = topicError?.name === "NotAllowedError";
-      setError(
-        microphoneDenied
-          ? "Microphone access was denied. Allow it in the browser's site settings and try again."
-          : topicError.message || "Could not generate a topic."
-      );
-      setErrorKind(microphoneDenied ? "recording" : "topic");
-      setPhase("error");
-    }
-  }, [isBusy, mode, resetAttempt]);
+
+      let preparedStream = null;
+      resetAttempt();
+      if (!existingTopic) setTopic(null);
+      setError(null);
+      setErrorKind(null);
+      try {
+        setPhase("requesting-mic");
+        preparedStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        });
+        pendingPromptStreamRef.current = preparedStream;
+        if (!mountedRef.current) {
+          preparedStream.getTracks().forEach((track) => track.stop());
+          pendingPromptStreamRef.current = null;
+          return;
+        }
+
+        let nextTopic = existingTopic;
+        if (!nextTopic) {
+          setPhase("generating");
+          const response = await fetch("/api/ielts/topic", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ mode, recentTopics: recentTopics() }),
+          });
+          if (!response.ok) throw new Error(await responseError(response));
+          nextTopic = await response.json();
+          if (!mountedRef.current) {
+            preparedStream.getTracks().forEach((track) => track.stop());
+            pendingPromptStreamRef.current = null;
+            return;
+          }
+          rememberTopic(nextTopic.prompt);
+          setTopic(nextTopic);
+        }
+
+        setRemainingMs(MODES[nextTopic.mode].seconds * 1000);
+        setPhase("synthesizing-topic");
+        const speechResponse = await fetch("/api/ielts/topic/audio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextTopic),
+        });
+        if (!speechResponse.ok) {
+          throw new Error(await responseError(speechResponse));
+        }
+        const voiceName =
+          speechResponse.headers.get("X-ElevenLabs-Voice") || "British voice";
+        const speechBlob = await speechResponse.blob();
+        if (!speechBlob.size) {
+          throw new Error("ElevenLabs returned an empty spoken question.");
+        }
+        if (!mountedRef.current) {
+          preparedStream.getTracks().forEach((track) => track.stop());
+          pendingPromptStreamRef.current = null;
+          return;
+        }
+        await playTopicAudio(
+          nextTopic,
+          speechBlob,
+          preparedStream,
+          voiceName
+        );
+        preparedStream = null;
+      } catch (topicError) {
+        preparedStream?.getTracks().forEach((track) => track.stop());
+        if (pendingPromptStreamRef.current === preparedStream) {
+          pendingPromptStreamRef.current = null;
+        }
+        if (!mountedRef.current) return;
+        const microphoneDenied = topicError?.name === "NotAllowedError";
+        setError(
+          microphoneDenied
+            ? "Microphone access was denied. Allow it in the browser's site settings and try again."
+            : topicError.message || "Could not prepare a spoken topic."
+        );
+        setErrorKind(microphoneDenied ? "recording" : "topic");
+        setPhase("error");
+      }
+    },
+    [isBusy, mode, playTopicAudio, resetAttempt]
+  );
+
+  const generateTopic = useCallback(
+    () => prepareSpokenTopic(),
+    [prepareSpokenTopic]
+  );
+
+  const retryCurrentTopic = useCallback(
+    () => prepareSpokenTopic(topic),
+    [prepareSpokenTopic, topic]
+  );
 
   const startMeter = useCallback(async (stream) => {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -568,6 +716,12 @@ export default function IeltsSpeaking() {
       if (audioContextRef.current)
         audioContextRef.current.close().catch(() => {});
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      topicAudioRef.current?.pause();
+      pendingPromptStreamRef.current
+        ?.getTracks()
+        .forEach((track) => track.stop());
+      if (topicAudioUrlRef.current)
+        URL.revokeObjectURL(topicAudioUrlRef.current);
       if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current);
     };
   }, [clearTimer]);
@@ -615,8 +769,8 @@ export default function IeltsSpeaking() {
           ))}
         </div>
         <p className="writing-auto-start-note">
-          Microphone recording and the answer timer start immediately when the
-          generated question appears.
+          The question is spoken once in a random British voice. Recording and
+          the answer timer start immediately when the voice finishes.
         </p>
       </section>
 
@@ -626,18 +780,45 @@ export default function IeltsSpeaking() {
           <span className="ielts-duration-badge">{modeConfig.duration}</span>
         </div>
         {topic ? (
-          <div className="ielts-topic-content">
-            <h2>{topic.title}</h2>
-            <p>{topic.prompt}</p>
-            {topic.bulletPoints.length > 0 && (
-              <div className="ielts-cue-card">
-                <span>You should say:</span>
-                <ul>
-                  {topic.bulletPoints.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
-              </div>
+          <div
+            className="ielts-spoken-topic"
+            data-state={phase}
+            aria-live="polite"
+          >
+            <div className="ielts-spoken-topic-mark" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+            <div>
+              <h2>
+                {phase === "synthesizing-topic"
+                  ? "Preparing the spoken question"
+                  : phase === "playing-topic"
+                    ? "Listen carefully"
+                    : phase === "topic-ready"
+                      ? "Spoken question ready"
+                      : "Question delivered"}
+              </h2>
+              <p>
+                {phase === "synthesizing-topic"
+                  ? "Selecting a random British examiner voice."
+                  : phase === "playing-topic"
+                    ? `${topicVoice || "British voice"} is reading your prompt now.`
+                    : phase === "topic-ready"
+                      ? "Press play once. Your recording starts when the question ends."
+                      : "Answer now; the written prompt stays hidden."}
+              </p>
+            </div>
+            {phase === "topic-ready" && (
+              <button
+                type="button"
+                className="ielts-primary"
+                onClick={() => void resumeTopicPlayback()}
+              >
+                Play spoken question
+              </button>
             )}
           </div>
         ) : (
@@ -658,6 +839,8 @@ export default function IeltsSpeaking() {
               ? "Allow microphone…"
               : phase === "generating"
                 ? "Generating…"
+                : phase === "synthesizing-topic"
+                  ? "Preparing audio…"
                 : `Generate ${modeConfig.duration} topic`}
           </button>
         )}
@@ -726,13 +909,21 @@ export default function IeltsSpeaking() {
             >
               Retry pipeline
             </button>
+          ) : errorKind === "topic-playback" ? (
+            <button
+              type="button"
+              className="ielts-primary"
+              onClick={() => void resumeTopicPlayback()}
+            >
+              Play spoken question
+            </button>
           ) : errorKind === "recording" && topic ? (
             <button
               type="button"
               className="ielts-secondary"
-              onClick={() => void startRecording()}
+              onClick={() => void retryCurrentTopic()}
             >
-              Try recording again
+              Hear topic and try again
             </button>
           ) : (
             <button
@@ -826,7 +1017,17 @@ export default function IeltsSpeaking() {
 
           <article className="ielts-feedback-card">
             <h3>What you said</h3>
-            <p className="ielts-transcript">{transcription.transcript}</p>
+            <div className="ielts-response-version">
+              <span>Your transcript</span>
+              <p className="ielts-transcript">{transcription.transcript}</p>
+            </div>
+            <div
+              className="ielts-response-version ielts-response-rewrite"
+              data-target="7.5"
+            >
+              <span>Band 7.5 - minimal changes</span>
+              <p>{evaluation.rewrittenResponse}</p>
+            </div>
           </article>
 
           <div className="ielts-feedback-columns">
@@ -880,16 +1081,16 @@ export default function IeltsSpeaking() {
             <button
               type="button"
               className="ielts-primary"
-              onClick={() => void startRecording()}
+              onClick={generateTopic}
             >
-              Try this topic again
+              Generate new topic
             </button>
             <button
               type="button"
               className="ielts-secondary"
-              onClick={generateTopic}
+              onClick={() => void retryCurrentTopic()}
             >
-              Generate new topic
+              Try this topic again
             </button>
           </div>
         </section>

@@ -77,7 +77,32 @@ function Solution({ steps, finalAnswer, pythonSolution }) {
   );
 }
 
-function ProblemCard({ problem, index }) {
+function ProblemCard({ problem, index, onSolutionOpened }) {
+  const [trackingState, setTrackingState] = useState("idle");
+  const [trackingError, setTrackingError] = useState("");
+  const solutionOpened =
+    problem.solutionOpened || trackingState === "saved";
+
+  const recordSolutionOpened = useCallback(async () => {
+    if (solutionOpened || trackingState === "saving") return;
+    setTrackingState("saving");
+    setTrackingError("");
+    try {
+      await onSolutionOpened(problem.id);
+      setTrackingState("saved");
+    } catch (saveError) {
+      setTrackingState("error");
+      setTrackingError(
+        saveError.message || "The solution view could not be saved.",
+      );
+    }
+  }, [
+    onSolutionOpened,
+    problem.id,
+    solutionOpened,
+    trackingState,
+  ]);
+
   return (
     <article className="math-problem-card">
       <div className="math-problem-topline">
@@ -114,6 +139,35 @@ function ProblemCard({ problem, index }) {
         <MathText>{problem.statement}</MathText>
       </div>
 
+      <div
+        className="math-solution-state"
+        data-opened={solutionOpened}
+        role="status"
+      >
+        <span aria-hidden="true" />
+        <div>
+          <strong>
+            {solutionOpened
+              ? "Solution opened"
+              : trackingState === "saving"
+                ? "Saving solution view"
+                : "Solution not opened"}
+          </strong>
+          <p>
+            {solutionOpened
+              ? "Counted as solved; a new problem can replace it tomorrow."
+              : trackingState === "error"
+                ? trackingError
+                : "Not counted as solved; this problem will remain eligible for tomorrow."}
+          </p>
+        </div>
+        {trackingState === "error" && !solutionOpened && (
+          <button type="button" onClick={() => void recordSolutionOpened()}>
+            Retry
+          </button>
+        )}
+      </div>
+
       <details className="math-disclosure math-hint">
         <summary>Show hint</summary>
         <div>
@@ -121,7 +175,12 @@ function ProblemCard({ problem, index }) {
         </div>
       </details>
 
-      <details className="math-disclosure">
+      <details
+        className="math-disclosure"
+        onToggle={(event) => {
+          if (event.currentTarget.open) void recordSolutionOpened();
+        }}
+      >
         <summary>Open worked solution</summary>
         <Solution
           steps={problem.solutionSteps}
@@ -195,6 +254,39 @@ export default function DailyMathPractice() {
     (total, subject) => total + subject.problems.length,
     0,
   );
+  const recordSolutionOpened = useCallback(async (problemId) => {
+    const response = await fetch(
+      `/api/daily/math/problems/${encodeURIComponent(problemId)}/solution-opened`,
+      {
+        method: "POST",
+        cache: "no-store",
+        keepalive: true,
+      },
+    );
+    if (!response.ok) throw new Error(await responseError(response));
+    const saved = await response.json();
+    setPayload((current) => {
+      if (!current?.digest?.subjects) return current;
+      return {
+        ...current,
+        digest: {
+          ...current.digest,
+          subjects: current.digest.subjects.map((subject) => ({
+            ...subject,
+            problems: subject.problems.map((problem) =>
+              problem.id === saved.problemId
+                ? {
+                    ...problem,
+                    solutionOpened: true,
+                    solutionOpenedAt: saved.solutionOpenedAt,
+                  }
+                : problem,
+            ),
+          })),
+        },
+      };
+    });
+  }, []);
 
   return (
     <section
@@ -298,6 +390,7 @@ export default function DailyMathPractice() {
                 <ProblemCard
                   problem={problem}
                   index={index}
+                  onSolutionOpened={recordSolutionOpened}
                   key={problem.id}
                 />
               ))}

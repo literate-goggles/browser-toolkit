@@ -19,7 +19,12 @@ Keep the IELTS vocabulary, speaking, and writing tools. They are an important
 part of the routine and should remain focused on practical progress. Save every
 successfully evaluated writing response, its task, timing, criterion bands, and
 full feedback in durable history. End writing feedback with a band-7.5 rewrite
-that preserves my ideas and structure and changes only what is needed.
+that preserves my ideas and structure and changes only what is needed. Keep
+speaking prompts hidden as text: ElevenLabs should read each prompt once with a
+random British voice, then microphone recording and the answer timer should
+start together as soon as playback ends. In speaking feedback, show the full
+transcript followed by a complete band-7.5 version that preserves my ideas and
+wording and makes only the smallest necessary changes.
 
 ## Daily focus timers
 
@@ -117,6 +122,9 @@ design, algorithms, ML mathematics, and proof practice.
 - For Algorithm day, use one problem from Competitive Programmer's Handbook,
   one LeetCode Medium problem, and one LeetCode Hard problem. Include runnable
   Python 3 for each main problem and follow-up.
+- Record whether I open each worked solution. Treat an unopened solution as an
+  unsolved problem and carry that problem into the next daily set at the same
+  difficulty. Replace it only after its worked solution has been opened.
 - Remember prior problem concepts and structures so later days do not repeat
   them.
 
