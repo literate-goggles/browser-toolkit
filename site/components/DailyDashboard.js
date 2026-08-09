@@ -139,12 +139,17 @@ export default function DailyDashboard() {
           <Link href="/" className="daily-brand">
             daily.chebakov.me
           </Link>
-          {digest && (
-            <span className="daily-generated">
-              Updated {generatedTime}
-              {payload.stale ? " (saved edition)" : ""}
-            </span>
-          )}
+          <div className="daily-account-actions">
+            {digest && (
+              <span className="daily-generated">
+                Updated {generatedTime}
+                {payload.stale ? " (saved edition)" : ""}
+              </span>
+            )}
+            <a href="/auth/logout" className="daily-sign-out">
+              Sign out
+            </a>
+          </div>
         </div>
         <div className="daily-hero-copy">
           <span className="daily-kicker">Morning routine</span>

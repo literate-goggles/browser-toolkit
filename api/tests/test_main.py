@@ -97,6 +97,30 @@ class DailyApiTests(unittest.TestCase):
         response = self.client.post("/api/vocab/bans/not%20safe", json={"word": "x"})
         self.assertEqual(response.status_code, 400)
 
+    def test_auth_check_rejects_a_missing_session(self) -> None:
+        response = self.client.get("/auth/check")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers["cache-control"], "no-store")
+
+    def test_auth_required_preserves_a_safe_sandbox_destination(self) -> None:
+        response = self.client.get(
+            "/auth/required",
+            headers={
+                "X-Original-Host": "sandbox.chebakov.me",
+                "X-Original-URI": "/ielts-writing/?mode=essay",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response.headers["location"].startswith(
+                "https://daily.chebakov.me/auth/login?"
+            )
+        )
+        self.assertIn("sandbox.chebakov.me", response.headers["location"])
+
     def test_daily_timer_start_is_server_enforced(self) -> None:
         initial = self.client.get("/api/daily/timers")
         started = self.client.post("/api/daily/timers/english-reading/start")

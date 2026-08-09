@@ -5,6 +5,8 @@ source of truth for the features I want on the site.
 
 ## General behaviour
 
+- Keep the daily dashboard and its sandbox IELTS tools private behind Google
+  sign-in. Allow only the configured personal Google account.
 - Refresh daily content at 00:00 in the configured site timezone, or on the
   first startup or visit after the date changes.
 - Keep persistent history across restarts and avoid previously shown items.

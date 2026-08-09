@@ -5,7 +5,10 @@ LiterateGoggles is a personal browser toolkit for tweaking the way websites look
 ## daily.chebakov.me
 
 The repository also contains a personal morning dashboard built with a static
-Next.js/React frontend and a FastAPI backend.
+Next.js/React frontend and a FastAPI backend. The dashboard and its sandbox
+IELTS routes are protected by Google OpenID Connect and a single verified-email
+allowlist; OAuth tokens and application sessions remain server-side or in
+secure `HttpOnly` cookies.
 
 The homepage follows [DAILY.md](./DAILY.md) and combines:
 

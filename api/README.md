@@ -8,6 +8,10 @@ IELTS pipelines proxied by `sandbox.chebakov.me`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| `GET` | `/auth/login` | Start Google OpenID Connect with state, nonce, and PKCE |
+| `GET` | `/auth/callback/` | Verify Google identity and issue the private-site session |
+| `GET` | `/auth/check` | Validate the signed session for nginx `auth_request` |
+| `GET` | `/auth/logout` | Clear the shared daily/sandbox session |
 | `GET` | `/api/health` | Service and provider-key readiness |
 | `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
 | `GET` | `/api/daily/math` | Return 30 daily source-grounded problems and solutions |
@@ -42,8 +46,15 @@ Recordings are not persisted by the backend. GPT-4o Transcribe produces the
 text, GPT-Audio-1.5 listens for pronunciation, rhythm, intelligibility, and
 naturalness, and GPT-5.6 Sol produces structured IELTS feedback plus a complete
 band-7.5 response rewritten with the smallest necessary changes.
-Provider-backed routes have a small per-IP, in-memory hourly limit to put a
-cost ceiling around this public personal site.
+Provider-backed routes have a small per-IP, in-memory hourly limit as a second
+cost ceiling behind the private-site authentication layer.
+
+Google sign-in uses the server-side authorization-code flow with a signed
+anti-CSRF state value, PKCE, an OpenID Connect nonce, and cryptographic ID-token
+validation. Only the configured verified email is accepted. The resulting
+30-day HMAC-signed session is stored in a `Secure`, `HttpOnly`, `SameSite=Lax`
+cookie scoped to `.chebakov.me`, allowing nginx to protect both the daily site
+and its sandbox IELTS routes without exposing Google tokens to JavaScript.
 
 Concept memory uses active retrieval rather than passive rereading. A new
 concept is first due tomorrow. On each due date, a bounded background worker
@@ -170,6 +181,11 @@ The repository-root `.env` is loaded by both the app and systemd unit:
 
 ```dotenv
 OPENAI_API_KEY=...
+GOOGLE_OAUTH_CLIENT_ID=...
+GOOGLE_OAUTH_CLIENT_SECRET=...
+GOOGLE_OAUTH_REDIRECT_URI=https://daily.chebakov.me/auth/callback/
+AUTH_ALLOWED_EMAIL=you@example.com
+AUTH_SESSION_SECRET=<at-least-32-random-characters>
 
 # Optional overrides
 OPENAI_TEXT_MODEL=gpt-5.6-sol

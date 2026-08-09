@@ -21,10 +21,12 @@ from collections import defaultdict, deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlencode
 
 import httpx
 from dotenv import dotenv_values, load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response, status
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -48,6 +50,15 @@ try:
         ConceptNotDueError,
         ConceptNotFoundError,
         ConceptReviewResult,
+    )
+    from .google_oauth import (
+        SESSION_TTL_SECONDS,
+        STATE_TTL_SECONDS,
+        GoogleOAuthService,
+        OAuthConfigurationError,
+        OAuthExchangeError,
+        OAuthIdentityError,
+        OAuthStateError,
     )
     from .daily_digest import DailyDigestService, DailyResponse
     from .daily_math import (
@@ -73,6 +84,15 @@ except ImportError:
         ConceptNotDueError,
         ConceptNotFoundError,
         ConceptReviewResult,
+    )
+    from google_oauth import (
+        SESSION_TTL_SECONDS,
+        STATE_TTL_SECONDS,
+        GoogleOAuthService,
+        OAuthConfigurationError,
+        OAuthExchangeError,
+        OAuthIdentityError,
+        OAuthStateError,
     )
     from daily_digest import DailyDigestService, DailyResponse
     from daily_math import (
@@ -185,6 +205,17 @@ ELEVENLABS_TTS_MODEL = _configuration(
     "ELEVENLABS_TTS_MODEL",
     "eleven_multilingual_v2",
 )
+GOOGLE_OAUTH_CLIENT_ID = _configuration("GOOGLE_OAUTH_CLIENT_ID")
+GOOGLE_OAUTH_CLIENT_SECRET = _configuration("GOOGLE_OAUTH_CLIENT_SECRET")
+GOOGLE_OAUTH_REDIRECT_URI = _configuration(
+    "GOOGLE_OAUTH_REDIRECT_URI",
+    "https://daily.chebakov.me/auth/callback/",
+)
+AUTH_ALLOWED_EMAIL = _configuration("AUTH_ALLOWED_EMAIL")
+AUTH_SESSION_SECRET = _configuration("AUTH_SESSION_SECRET")
+AUTH_SESSION_COOKIE_NAME = "__Secure-daily_auth_session"
+AUTH_STATE_COOKIE_NAME = "__Host-daily_oauth_state"
+AUTH_COOKIE_DOMAIN = ".chebakov.me"
 
 MAX_AUDIO_BYTES = 12 * 1024 * 1024
 MAX_TOPIC_AUDIO_BYTES = 5 * 1024 * 1024
@@ -326,6 +357,13 @@ chess_opening_names_service: ChessOpeningNamesService | None = None
 daily_timer_service: DailyTimerService | None = None
 concept_memory_service: ConceptMemoryService | None = None
 writing_progress_service: WritingProgressService | None = None
+google_oauth_service = GoogleOAuthService(
+    client_id=GOOGLE_OAUTH_CLIENT_ID,
+    client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
+    session_secret=AUTH_SESSION_SECRET,
+    allowed_email=AUTH_ALLOWED_EMAIL,
+    redirect_uri=GOOGLE_OAUTH_REDIRECT_URI,
+)
 
 
 @asynccontextmanager
@@ -353,6 +391,143 @@ app = FastAPI(
     openapi_url=None,
     lifespan=_lifespan,
 )
+
+
+def _no_store(response: Response) -> Response:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
+@app.get("/auth/login", include_in_schema=False)
+def google_auth_login(next: str = "/") -> Response:
+    try:
+        login = google_oauth_service.start_login(next)
+    except OAuthConfigurationError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response = RedirectResponse(login.authorization_url, status_code=302)
+    response.set_cookie(
+        AUTH_STATE_COOKIE_NAME,
+        login.state_cookie,
+        max_age=STATE_TTL_SECONDS,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+    return _no_store(response)
+
+
+@app.get("/auth/callback/", include_in_schema=False)
+async def google_auth_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+) -> Response:
+    state_cookie = request.cookies.get(AUTH_STATE_COOKIE_NAME, "")
+    if error:
+        response = PlainTextResponse(
+            "Google sign-in was cancelled or denied.",
+            status_code=400,
+        )
+    elif not code or not state or not state_cookie:
+        response = PlainTextResponse(
+            "The Google sign-in callback is incomplete.",
+            status_code=400,
+        )
+    else:
+        try:
+            result = await google_oauth_service.finish_login(
+                code=code,
+                returned_state=state,
+                state_cookie=state_cookie,
+            )
+        except OAuthConfigurationError as exc:
+            response = PlainTextResponse(str(exc), status_code=503)
+        except OAuthStateError:
+            response = PlainTextResponse(
+                "The Google sign-in request expired or failed its security check.",
+                status_code=400,
+            )
+        except OAuthIdentityError:
+            response = PlainTextResponse(
+                "This verified Google account is not allowed to use the site.",
+                status_code=403,
+            )
+        except OAuthExchangeError:
+            response = PlainTextResponse(
+                "Google sign-in could not be completed. Please try again.",
+                status_code=502,
+            )
+        else:
+            response = RedirectResponse(result.next_url, status_code=303)
+            response.set_cookie(
+                AUTH_SESSION_COOKIE_NAME,
+                result.session_cookie,
+                max_age=SESSION_TTL_SECONDS,
+                path="/",
+                domain=AUTH_COOKIE_DOMAIN,
+                secure=True,
+                httponly=True,
+                samesite="lax",
+            )
+    response.delete_cookie(
+        AUTH_STATE_COOKIE_NAME,
+        path="/",
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+    return _no_store(response)
+
+
+@app.get("/auth/check", include_in_schema=False)
+def google_auth_check(request: Request) -> Response:
+    identity = google_oauth_service.authenticate_session(
+        request.cookies.get(AUTH_SESSION_COOKIE_NAME)
+    )
+    if identity is None:
+        return _no_store(Response(status_code=401))
+    response = Response(
+        status_code=204,
+        headers={"X-Auth-Email": identity.email},
+    )
+    return _no_store(response)
+
+
+@app.get("/auth/required", include_in_schema=False)
+def google_auth_required(request: Request) -> Response:
+    original_host = request.headers.get("x-original-host", "daily.chebakov.me")
+    original_uri = request.headers.get("x-original-uri", "/")
+    next_url = google_oauth_service.safe_next_url(
+        f"https://{original_host}{original_uri}"
+    )
+    login_url = (
+        f"{google_oauth_service.application_origin}/auth/login?"
+        f"{urlencode({'next': next_url})}"
+    )
+    return _no_store(RedirectResponse(login_url, status_code=302))
+
+
+@app.get("/auth/logout", include_in_schema=False)
+@app.get("/auth/logout/", include_in_schema=False)
+def google_auth_logout() -> Response:
+    response = RedirectResponse(
+        f"{google_oauth_service.application_origin}/auth/login",
+        status_code=303,
+    )
+    response.delete_cookie(
+        AUTH_SESSION_COOKIE_NAME,
+        path="/",
+        domain=AUTH_COOKIE_DOMAIN,
+        secure=True,
+        httponly=True,
+        samesite="lax",
+    )
+    return _no_store(response)
+
+
 _store_lock = threading.Lock()
 _rate_limit_lock = threading.Lock()
 _provider_requests: defaultdict[str, deque[float]] = defaultdict(deque)

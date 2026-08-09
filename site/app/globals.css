@@ -2147,6 +2147,23 @@ button {
   font-size: 11px;
 }
 
+.daily-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.daily-sign-out {
+  padding: 5px 9px;
+  border: 1px solid rgba(248, 246, 239, 0.23);
+  border-radius: 999px;
+  color: rgba(248, 246, 239, 0.75);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .daily-hero-copy {
   max-width: 760px;
   padding: 60px 0 44px;
@@ -5356,6 +5373,10 @@ button {
 
   .daily-generated {
     display: none;
+  }
+
+  .daily-account-actions {
+    width: 100%;
   }
 
   .daily-date-line {
