@@ -44,11 +44,18 @@ class DailyApiTests(unittest.TestCase):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.original_data_file = main.BANS_DATA_FILE
         self.original_timer_service = main.daily_timer_service
+        self.original_concept_memory_service = main.concept_memory_service
         self.original_writing_progress_service = main.writing_progress_service
         main.BANS_DATA_FILE = Path(self.temporary_directory.name) / "bans.json"
         main.daily_timer_service = main.DailyTimerService(
             database_file=(
                 Path(self.temporary_directory.name) / "daily_timers.sqlite3"
+            ),
+            timezone_name="UTC",
+        )
+        main.concept_memory_service = main.ConceptMemoryService(
+            database_file=(
+                Path(self.temporary_directory.name) / "concept_memory.sqlite3"
             ),
             timezone_name="UTC",
         )
@@ -63,6 +70,7 @@ class DailyApiTests(unittest.TestCase):
     def tearDown(self) -> None:
         main.BANS_DATA_FILE = self.original_data_file
         main.daily_timer_service = self.original_timer_service
+        main.concept_memory_service = self.original_concept_memory_service
         main.writing_progress_service = self.original_writing_progress_service
         self.temporary_directory.cleanup()
 
@@ -104,6 +112,40 @@ class DailyApiTests(unittest.TestCase):
         )
         self.assertEqual(conflict.status_code, 409)
         self.assertIn("already running", conflict.json()["detail"])
+
+    def test_concept_memory_create_list_and_delete_lifecycle(self) -> None:
+        created = self.client.post(
+            "/api/daily/concepts",
+            json={
+                "concept": "  The spacing effect  ",
+                "explanation": (
+                    "Reviewing across separate sessions improves durable recall."
+                ),
+            },
+        )
+
+        self.assertEqual(created.status_code, 200)
+        concept = created.json()["upcomingConcepts"][0]
+        self.assertEqual(concept["concept"], "The spacing effect")
+        self.assertEqual(concept["reviewNumber"], 1)
+        self.assertEqual(
+            self.client.get("/api/daily/concepts").json()["stats"][
+                "activeConcepts"
+            ],
+            1,
+        )
+
+        deleted = self.client.delete(f"/api/daily/concepts/{concept['id']}")
+        self.assertEqual(deleted.status_code, 200)
+        self.assertEqual(deleted.json()["stats"]["activeConcepts"], 0)
+
+    def test_concept_memory_rejects_blank_explanation(self) -> None:
+        response = self.client.post(
+            "/api/daily/concepts",
+            json={"concept": "A concept", "explanation": "   "},
+        )
+
+        self.assertEqual(response.status_code, 422)
 
     def test_short_topic_discards_accidental_cue_points(self) -> None:
         generated = {

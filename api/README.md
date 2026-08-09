@@ -1,8 +1,8 @@
-# daily.chebakov.me · FastAPI backend
+# Daily and sandbox FastAPI backend
 
 One Python service backs the static Next.js site. It prepares and remembers the
 daily morning digest, keeps the shared vocab bans API, and runs the server-only
-IELTS pipelines.
+IELTS pipelines proxied by `sandbox.chebakov.me`.
 
 ## Endpoints
 
@@ -15,6 +15,10 @@ IELTS pipelines.
 | `GET` | `/api/daily/chess` | Return five repertoire-matched game positions and five theory positions |
 | `GET` | `/api/daily/timers` | Return today's focus timers and accumulated totals |
 | `POST` | `/api/daily/timers/{activityKey}/start` | Irreversibly start today's 25-minute activity |
+| `GET` | `/api/daily/concepts` | Return due and upcoming active-recall concepts |
+| `POST` | `/api/daily/concepts` | Save a concept and schedule its first recall |
+| `POST` | `/api/daily/concepts/{conceptId}/reviews` | Save a remembered/not-yet result and reschedule it |
+| `DELETE` | `/api/daily/concepts/{conceptId}` | Remove an active concept and its recall history |
 | `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
 | `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
 | `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
@@ -39,6 +43,13 @@ naturalness, and GPT-5.6 Sol produces structured IELTS feedback plus a complete
 band-7.5 response rewritten with the smallest necessary changes.
 Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
+
+Concept memory uses active retrieval rather than passive rereading. A new
+concept is first due tomorrow, then successful recalls use gaps of 3, 7, 14,
+30, 60, and 120 days. A missed recall keeps the current stage and returns the
+concept tomorrow. The last successful recall marks the concept completed and
+removes it from the active queue while preserving the completion and review
+history for statistics.
 
 Every successful writing evaluation is durably stored in
 `api/ielts_writing.sqlite3`. Each row contains the complete task, original
@@ -155,6 +166,7 @@ ELEVENLABS_API_KEY=
 ELEVENLABS_TTS_MODEL=eleven_multilingual_v2
 DAILY_TIMEZONE=UTC
 DAILY_TIMERS_DB_FILE=api/daily_timers.sqlite3
+CONCEPT_MEMORY_DB_FILE=api/concept_memory.sqlite3
 IELTS_WRITING_DB_FILE=api/ielts_writing.sqlite3
 CHESS_COM_USERNAME=unlimited_bezdarnost
 CHESS_REPERTOIRE_FILE=api/chess_repertoire.json
@@ -189,4 +201,5 @@ Runtime bans remain in `api/bans.json`; the daily digest lives in
 `api/daily.json`; the math set lives in `api/math_daily.json`; and chess drill
 state lives in `api/chess_drills.json`. Timer history lives in
 `api/daily_timers.sqlite3`; completed writing attempts live in
-`api/ielts_writing.sqlite3`. All runtime files are excluded from git.
+`api/ielts_writing.sqlite3`; concept recall state and history live in
+`api/concept_memory.sqlite3`. All runtime files are excluded from git.

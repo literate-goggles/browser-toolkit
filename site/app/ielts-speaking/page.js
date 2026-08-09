@@ -2,7 +2,7 @@ import IeltsSpeaking from "@/components/IeltsSpeaking";
 import Link from "next/link";
 
 export const metadata = {
-  title: "IELTS speaking · daily.chebakov.me",
+  title: "IELTS speaking · sandbox.chebakov.me",
   description:
     "All three IELTS speaking parts with audio-aware band-7.5 feedback.",
 };
@@ -18,7 +18,7 @@ export default function IeltsSpeakingPage() {
           </p>
         </header>
         <IeltsSpeaking />
-        <Link className="back-link" href="/">
+        <Link className="back-link" href="https://daily.chebakov.me/">
           ← back to daily.chebakov.me
         </Link>
       </main>

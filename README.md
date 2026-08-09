@@ -9,7 +9,8 @@ Next.js/React frontend and a FastAPI backend.
 
 The homepage follows [DAILY.md](./DAILY.md) and combines:
 
-- direct access to IELTS vocabulary, speaking, and writing practice, with
+- direct access to IELTS vocabulary on `daily.chebakov.me`, plus speaking and
+  writing practice hosted exclusively on `sandbox.chebakov.me`, with
   audio-only speaking prompts read by random British ElevenLabs voices;
 - five repertoire-matched drills from the latest 100 Chess.com games and five
   deeper opening-theory drills, with local Stockfish comparison;
@@ -26,6 +27,9 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
   next daily set;
 - server-enforced 25-minute English- and Russian-reading timers, with a
   completion chime and durable SQLite history for future statistics;
+- a SQLite-backed active-recall queue for concepts learned during the day,
+  using 1, 3, 7, 14, 30, 60, and 120-day review gaps, closed-book comparison,
+  next-day retries after misses, and automatic archival after full mastery;
 - short introductions to important car models;
 - public-domain Russian poetry for memory practice.
 
@@ -43,6 +47,8 @@ Successfully evaluated IELTS writing attempts are saved in
 `api/ielts_writing.sqlite3`, including the original response, timing, criterion
 scores, feedback, and a minimal-change band-7.5 rewrite. This durable structure
 is ready for future progress charts without exposing essay history publicly.
+Concepts and their complete recall history are stored separately in
+`api/concept_memory.sqlite3`.
 
 See [api/README.md](./api/README.md) for local and production setup.
 

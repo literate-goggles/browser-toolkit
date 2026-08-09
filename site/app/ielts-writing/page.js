@@ -2,7 +2,7 @@ import IeltsWriting from "@/components/IeltsWriting";
 import Link from "next/link";
 
 export const metadata = {
-  title: "IELTS writing · daily.chebakov.me",
+  title: "IELTS writing · sandbox.chebakov.me",
   description:
     "Timed IELTS Academic and General Training writing with band-7.5 feedback.",
 };
@@ -18,7 +18,7 @@ export default function IeltsWritingPage() {
           </p>
         </header>
         <IeltsWriting />
-        <Link className="back-link" href="/">
+        <Link className="back-link" href="https://daily.chebakov.me/">
           ← back to daily.chebakov.me
         </Link>
       </main>

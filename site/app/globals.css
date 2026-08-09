@@ -2302,6 +2302,504 @@ button {
   line-height: 1;
 }
 
+.concept-memory-section {
+  background:
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(196, 111, 76, 0.09),
+      transparent 28%
+    ),
+    linear-gradient(145deg, rgba(255, 254, 249, 0.96), rgba(238, 244, 239, 0.9));
+}
+
+.concept-memory-stats {
+  margin: -4px 0 14px;
+  padding: 11px 14px;
+  border: 1px solid rgba(56, 107, 104, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.56);
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+}
+
+.concept-memory-stats span {
+  padding: 0 16px;
+  color: #77807c;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.concept-memory-stats span:first-child {
+  padding-left: 0;
+}
+
+.concept-memory-stats span + span {
+  border-left: 1px solid rgba(56, 107, 104, 0.13);
+}
+
+.concept-memory-stats strong {
+  margin-left: 7px;
+  color: #254a48;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.concept-memory-schedule {
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid rgba(56, 107, 104, 0.14);
+  border-radius: 15px;
+  background: rgba(244, 247, 241, 0.76);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.concept-memory-schedule > div {
+  flex: 0 0 auto;
+}
+
+.concept-memory-schedule > div span,
+.concept-memory-form > div:first-child > span,
+.concept-memory-subheading > div > span,
+.concept-memory-comparison span {
+  display: block;
+  color: #ad5c40;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.concept-memory-schedule > div strong {
+  display: block;
+  margin-top: 4px;
+  color: #2b4d4a;
+  font-size: 11px;
+}
+
+.concept-memory-schedule ol {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  list-style: none;
+}
+
+.concept-memory-schedule li {
+  padding: 7px 9px;
+  border: 1px solid rgba(56, 107, 104, 0.17);
+  border-radius: 999px;
+  color: #42625f;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 9px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.concept-memory-schedule li span {
+  margin-right: 5px;
+  color: #b4684c;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+}
+
+.concept-memory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.concept-memory-queue,
+.concept-memory-form {
+  min-width: 0;
+}
+
+.concept-memory-subheading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 11px;
+}
+
+.concept-memory-subheading h3,
+.concept-memory-form h3 {
+  margin-top: 3px;
+  color: #183333;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.concept-memory-subheading > strong {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  color: #2f605c;
+  background: rgba(56, 107, 104, 0.1);
+  font-size: 11px;
+}
+
+.concept-memory-due-list {
+  display: grid;
+  gap: 12px;
+}
+
+.concept-memory-card {
+  padding: 20px;
+  border: 1px solid rgba(56, 107, 104, 0.2);
+  border-radius: 17px;
+  background: rgba(255, 254, 249, 0.92);
+  box-shadow: 0 10px 25px rgba(37, 71, 68, 0.045);
+}
+
+.concept-memory-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px 12px;
+  flex-wrap: wrap;
+}
+
+.concept-memory-card-meta span {
+  color: #7a817d;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.concept-memory-card-meta span:first-child {
+  color: #a4563d;
+}
+
+.concept-memory-card-meta button,
+.concept-memory-upcoming button {
+  margin-left: auto;
+  border: 0;
+  color: #8a6b60;
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.concept-memory-card-meta button:disabled,
+.concept-memory-upcoming button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.concept-memory-card h4 {
+  margin: 13px 0 16px;
+  color: #17302f;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(20px, 3vw, 27px);
+  font-weight: 400;
+  line-height: 1.18;
+}
+
+.concept-memory-card > label,
+.concept-memory-form > label {
+  display: block;
+  margin-bottom: 6px;
+  color: #63706c;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.concept-memory-card > textarea,
+.concept-memory-form input,
+.concept-memory-form textarea {
+  width: 100%;
+  border: 1px solid #d8ddd5;
+  border-radius: 11px;
+  color: #233937;
+  background: rgba(255, 255, 255, 0.8);
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.concept-memory-card > textarea {
+  min-height: 125px;
+  padding: 13px;
+  resize: vertical;
+  font: 13px/1.65 Georgia, "Times New Roman", serif;
+}
+
+.concept-memory-card > textarea:focus,
+.concept-memory-form input:focus,
+.concept-memory-form textarea:focus {
+  border-color: #527d79;
+  box-shadow: 0 0 0 3px rgba(56, 107, 104, 0.09);
+}
+
+.concept-memory-card > textarea:disabled {
+  color: #425754;
+  background: #f2f2ec;
+}
+
+.concept-reveal-button {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 11px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #285955;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.concept-reveal-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.concept-memory-comparison {
+  margin-top: 13px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.concept-memory-comparison > div {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(56, 107, 104, 0.13);
+  border-radius: 11px;
+  background: rgba(240, 244, 239, 0.74);
+}
+
+.concept-memory-comparison > div:last-child {
+  border-color: rgba(173, 92, 64, 0.16);
+  background: rgba(251, 244, 237, 0.8);
+}
+
+.concept-memory-comparison p {
+  margin-top: 7px;
+  color: #344b48;
+  font: 12px/1.62 Georgia, "Times New Roman", serif;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.concept-memory-verdict {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.concept-memory-verdict > span {
+  color: #65716d;
+  font-size: 10px;
+}
+
+.concept-memory-verdict > div {
+  display: flex;
+  gap: 7px;
+}
+
+.concept-memory-verdict button,
+.concept-memory-form-footer button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(56, 107, 104, 0.25);
+  border-radius: 9px;
+  color: #386b68;
+  background: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.concept-memory-verdict button:last-child,
+.concept-memory-form-footer button {
+  border-color: #285955;
+  color: #fff;
+  background: #285955;
+}
+
+.concept-memory-verdict button:disabled,
+.concept-memory-form-footer button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.concept-memory-empty,
+.concept-memory-notice,
+.concept-memory-error {
+  padding: 18px;
+  border: 1px dashed rgba(56, 107, 104, 0.24);
+  border-radius: 14px;
+  color: #66736f;
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}
+
+.concept-memory-empty strong {
+  display: block;
+  color: #315653;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.concept-memory-empty p {
+  margin-top: 5px;
+}
+
+.concept-memory-notice,
+.concept-memory-error {
+  margin-bottom: 14px;
+}
+
+.concept-memory-notice {
+  border-style: solid;
+  border-color: rgba(55, 126, 78, 0.2);
+  color: #326842;
+  background: rgba(225, 242, 228, 0.56);
+}
+
+.concept-memory-error {
+  border-style: solid;
+  border-color: rgba(174, 75, 52, 0.2);
+  color: #934833;
+  background: rgba(250, 232, 225, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.concept-memory-error button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #fff;
+  background: #934833;
+  cursor: pointer;
+}
+
+.concept-memory-upcoming {
+  margin-top: 22px;
+}
+
+.concept-memory-upcoming ol {
+  overflow: hidden;
+  border: 1px solid rgba(56, 107, 104, 0.14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.48);
+  list-style: none;
+}
+
+.concept-memory-upcoming li {
+  min-width: 0;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.concept-memory-upcoming li + li {
+  border-top: 1px solid rgba(56, 107, 104, 0.1);
+}
+
+.concept-memory-upcoming li > div {
+  min-width: 0;
+}
+
+.concept-memory-upcoming li strong {
+  display: block;
+  overflow: hidden;
+  color: #294744;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.concept-memory-upcoming li span {
+  display: block;
+  margin-top: 3px;
+  color: #7b837f;
+  font-size: 9px;
+}
+
+.concept-memory-form {
+  padding: 20px;
+  border: 1px solid rgba(173, 92, 64, 0.18);
+  border-radius: 17px;
+  background: rgba(253, 248, 240, 0.82);
+}
+
+.concept-memory-form > div:first-child {
+  margin-bottom: 20px;
+}
+
+.concept-memory-form > div:first-child p {
+  margin-top: 7px;
+  color: #717a76;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.concept-memory-form input,
+.concept-memory-form textarea {
+  padding: 11px 12px;
+  font: 12px/1.55 Georgia, "Times New Roman", serif;
+}
+
+.concept-memory-form textarea {
+  min-height: 175px;
+  resize: vertical;
+}
+
+.concept-memory-form > label:not(:first-of-type) {
+  margin-top: 14px;
+}
+
+.concept-memory-form-footer {
+  margin-top: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.concept-memory-form-footer > span {
+  color: #7a817d;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.concept-memory-research-note {
+  margin-top: 18px;
+  color: #7a817d;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
 .daily-timers-section {
   background:
     linear-gradient(
@@ -4323,6 +4821,39 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .concept-memory-layout,
+  .concept-memory-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .concept-memory-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .concept-memory-stats span {
+    padding: 5px 10px;
+  }
+
+  .concept-memory-stats span:first-child {
+    padding-left: 10px;
+  }
+
+  .concept-memory-stats span:nth-child(3) {
+    border-left: 0;
+  }
+
+  .concept-memory-schedule {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .concept-memory-schedule ol {
+    width: 100%;
+    padding-bottom: 3px;
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
   .daily-practice-card {
     min-height: 112px;
   }
@@ -4451,6 +4982,16 @@ button {
 
   .daily-section-heading > p {
     text-align: left;
+  }
+
+  .concept-memory-verdict {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .concept-memory-verdict > div,
+  .concept-memory-verdict button {
+    flex: 1;
   }
 
   .math-subject-tabs {

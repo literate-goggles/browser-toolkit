@@ -16,15 +16,17 @@ source of truth for the features I want on the site.
 ## IELTS
 
 Keep the IELTS vocabulary, speaking, and writing tools. They are an important
-part of the routine and should remain focused on practical progress. Save every
-successfully evaluated writing response, its task, timing, criterion bands, and
-full feedback in durable history. End writing feedback with a band-7.5 rewrite
-that preserves my ideas and structure and changes only what is needed. Keep
-speaking prompts hidden as text: ElevenLabs should read each prompt once with a
-random British voice, then microphone recording and the answer timer should
-start together as soon as playback ends. In speaking feedback, show the full
-transcript followed by a complete band-7.5 version that preserves my ideas and
-wording and makes only the smallest necessary changes.
+part of the routine and should remain focused on practical progress. Keep
+vocabulary on `daily.chebakov.me`; link speaking and writing from the dashboard
+but host both tools only on `sandbox.chebakov.me`. Save every successfully
+evaluated writing response, its task, timing, criterion bands, and full feedback
+in durable history. End writing feedback with a band-7.5 rewrite that preserves
+my ideas and structure and changes only what is needed. Keep speaking prompts
+hidden as text: ElevenLabs should read each prompt once with a random British
+voice, then microphone recording and the answer timer should start together as
+soon as playback ends. In speaking feedback, show the full transcript followed
+by a complete band-7.5 version that preserves my ideas and wording and makes
+only the smallest necessary changes.
 
 ## Daily focus timers
 
@@ -33,6 +35,15 @@ Once started, a timer cannot be paused or reset and must run to completion,
 then play a chime. Preserve every session in durable storage so future pages
 can show totals, streaks, and other statistics. Allow only one focus timer to
 run at a time and only one completion per activity per day.
+
+## Concept recall
+
+Let me save a concept or question together with the explanation I want to
+retain. Require a closed-book written recall before revealing that explanation.
+Use successful-recall gaps of 1, 3, 7, 14, 30, 60, and 120 days; a failed
+recall repeats the same step tomorrow. After the final successful recall,
+remove the concept from the active queue and retain it only as fully remembered
+history.
 
 ## Chess drills
 

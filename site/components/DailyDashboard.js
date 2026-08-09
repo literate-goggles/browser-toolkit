@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import DailyChessDrills from "./DailyChessDrills";
+import DailyConceptMemory from "./DailyConceptMemory";
 import DailyMathPractice from "./DailyMathPractice";
 import DailyTimers from "./DailyTimers";
 
@@ -14,13 +15,13 @@ const PRACTICE_LINKS = [
     description: "Build recall with focused English to Russian practice.",
   },
   {
-    href: "/ielts-speaking/",
+    href: "https://sandbox.chebakov.me/ielts-speaking/",
     number: "02",
     title: "IELTS speaking",
     description: "Record a timed answer and get audio-aware feedback.",
   },
   {
-    href: "/ielts-writing/",
+    href: "https://sandbox.chebakov.me/ielts-writing/",
     number: "03",
     title: "IELTS writing",
     description: "Practice a complete task with band 7.5 guidance.",
@@ -187,6 +188,8 @@ export default function DailyDashboard() {
           ))}
         </div>
       </section>
+
+      <DailyConceptMemory />
 
       <DailyChessDrills />
 

@@ -35,6 +35,13 @@ from pydantic import (
 
 try:
     from .chess_drills import ChessDrillResponse, ChessDrillService
+    from .concept_memory import (
+        ConceptMemoryResponse,
+        ConceptMemoryService,
+        ConceptNotDueError,
+        ConceptNotFoundError,
+        ConceptReviewResult,
+    )
     from .daily_digest import DailyDigestService, DailyResponse
     from .daily_math import (
         DailyMathService,
@@ -50,6 +57,13 @@ try:
     from .writing_progress import WritingProgressService
 except ImportError:
     from chess_drills import ChessDrillResponse, ChessDrillService
+    from concept_memory import (
+        ConceptMemoryResponse,
+        ConceptMemoryService,
+        ConceptNotDueError,
+        ConceptNotFoundError,
+        ConceptReviewResult,
+    )
     from daily_digest import DailyDigestService, DailyResponse
     from daily_math import (
         DailyMathService,
@@ -101,6 +115,14 @@ DAILY_TIMERS_DB_FILE = Path(
 ).expanduser()
 if not DAILY_TIMERS_DB_FILE.is_absolute():
     DAILY_TIMERS_DB_FILE = PROJECT_DIR / DAILY_TIMERS_DB_FILE
+CONCEPT_MEMORY_DB_FILE = Path(
+    os.getenv(
+        "CONCEPT_MEMORY_DB_FILE",
+        str(API_DIR / "concept_memory.sqlite3"),
+    )
+).expanduser()
+if not CONCEPT_MEMORY_DB_FILE.is_absolute():
+    CONCEPT_MEMORY_DB_FILE = PROJECT_DIR / CONCEPT_MEMORY_DB_FILE
 IELTS_WRITING_DB_FILE = Path(
     os.getenv(
         "IELTS_WRITING_DB_FILE",
@@ -283,6 +305,7 @@ daily_service: DailyDigestService | None = None
 daily_math_service: DailyMathService | None = None
 chess_drill_service: ChessDrillService | None = None
 daily_timer_service: DailyTimerService | None = None
+concept_memory_service: ConceptMemoryService | None = None
 writing_progress_service: WritingProgressService | None = None
 
 
@@ -322,6 +345,23 @@ class StrictModel(BaseModel):
 
 class BanWordRequest(StrictModel):
     word: str = Field(min_length=1, max_length=128)
+
+
+class ConceptCreateRequest(StrictModel):
+    concept: str = Field(min_length=2, max_length=240)
+    explanation: str = Field(min_length=2, max_length=8_000)
+
+    @field_validator("concept", "explanation")
+    @classmethod
+    def clean_concept_text(cls, value: str) -> str:
+        cleaned = value.strip()
+        if len(cleaned) < 2:
+            raise ValueError("concept text must contain at least two characters")
+        return cleaned
+
+
+class ConceptReviewRequest(StrictModel):
+    remembered: bool
 
 
 class TopicRequest(StrictModel):
@@ -940,6 +980,10 @@ chess_drill_service = ChessDrillService(
 )
 daily_timer_service = DailyTimerService(
     database_file=DAILY_TIMERS_DB_FILE,
+    timezone_name=DAILY_TIMEZONE,
+)
+concept_memory_service = ConceptMemoryService(
+    database_file=CONCEPT_MEMORY_DB_FILE,
     timezone_name=DAILY_TIMEZONE,
 )
 writing_progress_service = WritingProgressService(
@@ -1599,6 +1643,95 @@ def start_daily_timer(activity_key: str) -> DailyTimersResponse:
         raise HTTPException(
             status_code=500,
             detail="Could not start the daily timer.",
+        ) from exc
+
+
+@app.get("/api/daily/concepts", response_model=ConceptMemoryResponse)
+def get_memory_concepts() -> ConceptMemoryResponse:
+    if not concept_memory_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The concept memory service is unavailable",
+        )
+    try:
+        return concept_memory_service.get()
+    except Exception as exc:
+        print(f"[concept-memory] could not read concepts: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not read the concept recall queue.",
+        ) from exc
+
+
+@app.post("/api/daily/concepts", response_model=ConceptMemoryResponse)
+def create_memory_concept(payload: ConceptCreateRequest) -> ConceptMemoryResponse:
+    if not concept_memory_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The concept memory service is unavailable",
+        )
+    try:
+        return concept_memory_service.create(
+            concept=payload.concept,
+            explanation=payload.explanation,
+        )
+    except Exception as exc:
+        print(f"[concept-memory] could not create concept: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the concept.",
+        ) from exc
+
+
+@app.post(
+    "/api/daily/concepts/{concept_id}/reviews",
+    response_model=ConceptReviewResult,
+)
+def review_memory_concept(
+    concept_id: str,
+    payload: ConceptReviewRequest,
+) -> ConceptReviewResult:
+    if not concept_memory_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The concept memory service is unavailable",
+        )
+    try:
+        return concept_memory_service.review(
+            concept_id,
+            remembered=payload.remembered,
+        )
+    except ConceptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Concept not found.") from exc
+    except ConceptNotDueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        print(f"[concept-memory] could not save recall: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save the recall result.",
+        ) from exc
+
+
+@app.delete(
+    "/api/daily/concepts/{concept_id}",
+    response_model=ConceptMemoryResponse,
+)
+def delete_memory_concept(concept_id: str) -> ConceptMemoryResponse:
+    if not concept_memory_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The concept memory service is unavailable",
+        )
+    try:
+        return concept_memory_service.delete(concept_id)
+    except ConceptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Concept not found.") from exc
+    except Exception as exc:
+        print(f"[concept-memory] could not delete concept: {exc}", flush=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not remove the concept.",
         ) from exc
 
 
