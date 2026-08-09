@@ -23,6 +23,7 @@ api/bans.json
 api/daily.json
 api/math_daily.json
 api/chess_drills.json
+api/chess_opening_names.json
 api/daily_timers.sqlite3
 api/daily_timers.sqlite3-shm
 api/daily_timers.sqlite3-wal

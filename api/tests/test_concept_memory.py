@@ -10,6 +10,7 @@ from api.concept_memory import (
     DEFAULT_REVIEW_INTERVAL_DAYS,
     ConceptMemoryService,
     ConceptNotDueError,
+    DuplicateConceptError,
 )
 
 
@@ -50,12 +51,43 @@ class ConceptMemoryServiceTests(unittest.TestCase):
         concept = self.create_concept()
 
         self.assertEqual(concept.nextReviewDate, "2026-08-10")
+        self.assertIsNone(concept.question)
         self.assertEqual(concept.reviewNumber, 1)
         self.assertEqual(concept.intervalDays, 1)
         self.assertEqual(
             self.service.get().scheduleDays,
             list(DEFAULT_REVIEW_INTERVAL_DAYS),
         )
+
+    def test_due_question_is_saved_once_for_the_current_recall_date(self) -> None:
+        concept = self.create_concept()
+        self.clock.value = datetime(2026, 8, 10, 8, 0, tzinfo=timezone.utc)
+        target = self.service.due_cue_targets()[0]
+
+        self.service.save_question(
+            concept_id=target.id,
+            recall_date=target.recallDate,
+            question="Which effect strengthens memory through active retrieval?",
+        )
+        self.service.save_question(
+            concept_id=target.id,
+            recall_date=target.recallDate,
+            question="A replacement question that should not overwrite the first.",
+        )
+
+        due = self.service.get().dueConcepts[0]
+        self.assertEqual(
+            due.question,
+            "Which effect strengthens memory through active retrieval?",
+        )
+        self.assertEqual(due.questionDate, "2026-08-10")
+        self.assertEqual(self.service.due_cue_targets(), [])
+
+    def test_duplicate_active_concept_is_rejected(self) -> None:
+        self.service.create(concept="Шумер")
+
+        with self.assertRaises(DuplicateConceptError):
+            self.service.create(concept="  шумер  ")
 
     def test_success_advances_to_the_next_expanding_interval(self) -> None:
         concept = self.create_concept()

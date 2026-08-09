@@ -15,6 +15,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 import uuid
 from collections import defaultdict, deque
 from contextlib import asynccontextmanager, suppress
@@ -35,7 +36,13 @@ from pydantic import (
 
 try:
     from .chess_drills import ChessDrillResponse, ChessDrillService
+    from .chess_opening_names import (
+        ChessOpeningNamesService,
+        OpeningNameResponse,
+    )
     from .concept_memory import (
+        ConceptCueTarget,
+        DuplicateConceptError,
         ConceptMemoryResponse,
         ConceptMemoryService,
         ConceptNotDueError,
@@ -57,7 +64,10 @@ try:
     from .writing_progress import WritingProgressService
 except ImportError:
     from chess_drills import ChessDrillResponse, ChessDrillService
+    from chess_opening_names import ChessOpeningNamesService, OpeningNameResponse
     from concept_memory import (
+        ConceptCueTarget,
+        DuplicateConceptError,
         ConceptMemoryResponse,
         ConceptMemoryService,
         ConceptNotDueError,
@@ -107,6 +117,14 @@ MATH_DATA_FILE = Path(
 CHESS_DRILLS_DATA_FILE = Path(
     os.getenv("CHESS_DRILLS_DATA_FILE", str(API_DIR / "chess_drills.json"))
 ).expanduser()
+CHESS_OPENING_NAMES_CACHE_FILE = Path(
+    os.getenv(
+        "CHESS_OPENING_NAMES_CACHE_FILE",
+        str(API_DIR / "chess_opening_names.json"),
+    )
+).expanduser()
+if not CHESS_OPENING_NAMES_CACHE_FILE.is_absolute():
+    CHESS_OPENING_NAMES_CACHE_FILE = PROJECT_DIR / CHESS_OPENING_NAMES_CACHE_FILE
 DAILY_TIMERS_DB_FILE = Path(
     os.getenv(
         "DAILY_TIMERS_DB_FILE",
@@ -304,6 +322,7 @@ WRITING_MODE_SPECS: dict[str, dict[str, str | int]] = {
 daily_service: DailyDigestService | None = None
 daily_math_service: DailyMathService | None = None
 chess_drill_service: ChessDrillService | None = None
+chess_opening_names_service: ChessOpeningNamesService | None = None
 daily_timer_service: DailyTimerService | None = None
 concept_memory_service: ConceptMemoryService | None = None
 writing_progress_service: WritingProgressService | None = None
@@ -316,6 +335,7 @@ async def _lifespan(_: FastAPI):
         for service in (daily_service, daily_math_service, chess_drill_service)
         if service is not None
     ]
+    scheduler_tasks.append(asyncio.create_task(_concept_question_scheduler()))
     try:
         yield
     finally:
@@ -337,6 +357,7 @@ _store_lock = threading.Lock()
 _rate_limit_lock = threading.Lock()
 _provider_requests: defaultdict[str, deque[float]] = defaultdict(deque)
 _elevenlabs_voice_cache: tuple[float, list[tuple[str, str]]] = (0.0, [])
+_concept_question_lock = asyncio.Lock()
 
 
 class StrictModel(BaseModel):
@@ -349,15 +370,20 @@ class BanWordRequest(StrictModel):
 
 class ConceptCreateRequest(StrictModel):
     concept: str = Field(min_length=2, max_length=240)
-    explanation: str = Field(min_length=2, max_length=8_000)
+    explanation: str = Field(default="", max_length=8_000)
 
-    @field_validator("concept", "explanation")
+    @field_validator("concept")
     @classmethod
-    def clean_concept_text(cls, value: str) -> str:
+    def clean_concept_name(cls, value: str) -> str:
         cleaned = value.strip()
         if len(cleaned) < 2:
             raise ValueError("concept text must contain at least two characters")
         return cleaned
+
+    @field_validator("explanation")
+    @classmethod
+    def clean_optional_explanation(cls, value: str) -> str:
+        return value.strip()
 
 
 class ConceptReviewRequest(StrictModel):
@@ -977,6 +1003,9 @@ chess_drill_service = ChessDrillService(
     username=CHESS_COM_USERNAME,
     timezone_name=DAILY_TIMEZONE,
     repertoire_file=CHESS_REPERTOIRE_FILE,
+)
+chess_opening_names_service = ChessOpeningNamesService(
+    cache_file=CHESS_OPENING_NAMES_CACHE_FILE,
 )
 daily_timer_service = DailyTimerService(
     database_file=DAILY_TIMERS_DB_FILE,
@@ -1605,6 +1634,30 @@ async def get_daily_chess(*, refresh: bool = False) -> ChessDrillResponse:
         ) from exc
 
 
+@app.get("/api/daily/opening-names", response_model=OpeningNameResponse)
+async def get_chess_opening_name_drill(*, exclude: str = "") -> OpeningNameResponse:
+    if not chess_opening_names_service:
+        raise HTTPException(
+            status_code=503,
+            detail="The chess opening-name service is unavailable",
+        )
+    excluded_ids = {
+        value
+        for value in exclude.split(",")[:100]
+        if re.fullmatch(r"[0-9a-f]{24}", value)
+    }
+    try:
+        return await chess_opening_names_service.random_drill(
+            excluded_ids=excluded_ids
+        )
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        print(f"[opening-names] could not prepare drill: {exc}", flush=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not prepare an opening-name drill.",
+        ) from exc
+
+
 @app.get("/api/daily/timers", response_model=DailyTimersResponse)
 def get_daily_timers() -> DailyTimersResponse:
     if not daily_timer_service:
@@ -1646,6 +1699,147 @@ def start_daily_timer(activity_key: str) -> DailyTimersResponse:
         ) from exc
 
 
+def _normalized_recall_text(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    without_marks = "".join(
+        character
+        for character in decomposed
+        if not unicodedata.combining(character)
+    )
+    return " ".join(re.findall(r"[\w]+", without_marks, flags=re.UNICODE))
+
+
+def _question_exposes_concept(question: str, concept: str) -> bool:
+    normalized_question = _normalized_recall_text(question)
+    normalized_concept = _normalized_recall_text(concept)
+    if not normalized_question or not normalized_concept:
+        return True
+    if normalized_concept in normalized_question:
+        return True
+    significant_tokens = [
+        token for token in normalized_concept.split() if len(token) >= 4
+    ]
+    return any(token in normalized_question for token in significant_tokens)
+
+
+async def _generate_concept_question(target: ConceptCueTarget) -> str:
+    rejected_questions: list[str] = []
+    for _ in range(3):
+        previous = target.previousQuestions + rejected_questions
+        generated = await _openai_json(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Create one precise active-recall identification question. "
+                        "The learner must answer with the target concept, but the "
+                        "question must never contain its name, an inflection, "
+                        "transliteration, acronym, obvious spelling clue, or a "
+                        "near-paraphrase that gives the answer away. Use distinctive "
+                        "properties, historical context, mechanisms, consequences, or "
+                        "examples. If the target is a given name or surname, make the "
+                        "question specifically about its etymology: language of origin, "
+                        "root meaning, or historical derivation. Write in the same "
+                        "language and script as the target when practical. Return only "
+                        "the question in the requested JSON shape."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "targetConcept": target.concept,
+                            "recallDate": target.recallDate,
+                            "questionsAlreadyUsed": previous,
+                            "requirements": [
+                                "The target concept must be the unambiguous answer.",
+                                "Do not mention or visibly derive the target name.",
+                                "Use a substantially different angle from every prior question.",
+                                "Ask exactly one self-contained question.",
+                            ],
+                        },
+                        ensure_ascii=False,
+                    ),
+                },
+            ],
+            schema_name="concept_recall_question",
+            schema={
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "question": {"type": "string", "minLength": 12, "maxLength": 500}
+                },
+                "required": ["question"],
+            },
+            max_tokens=700,
+            reasoning_effort="medium",
+            verbosity="low",
+        )
+        question = str(generated.get("question") or "").strip()
+        previous_normalized = {
+            _normalized_recall_text(item) for item in target.previousQuestions
+        }
+        if (
+            12 <= len(question) <= 500
+            and not _question_exposes_concept(question, target.concept)
+            and _normalized_recall_text(question) not in previous_normalized
+        ):
+            return question
+        if question:
+            rejected_questions.append(question)
+    raise HTTPException(
+        status_code=502,
+        detail="OpenAI could not produce a safe indirect recall question.",
+    )
+
+
+async def _prepare_concept_questions() -> None:
+    if not concept_memory_service:
+        return
+    async with _concept_question_lock:
+        targets = concept_memory_service.due_cue_targets()[:12]
+
+        async def prepare_target(target: ConceptCueTarget) -> None:
+            try:
+                question = await _generate_concept_question(target)
+                concept_memory_service.save_question(
+                    concept_id=target.id,
+                    recall_date=target.recallDate,
+                    question=question,
+                )
+            except HTTPException as exc:
+                print(
+                    f"[concept-memory] question generation failed for {target.id}: "
+                    f"{exc.detail}",
+                    flush=True,
+                )
+
+        semaphore = asyncio.Semaphore(3)
+
+        async def prepare_with_limit(target: ConceptCueTarget) -> None:
+            async with semaphore:
+                await prepare_target(target)
+
+        if targets:
+            await asyncio.gather(
+                *(prepare_with_limit(target) for target in targets)
+            )
+
+
+async def _concept_question_scheduler() -> None:
+    while True:
+        try:
+            await _prepare_concept_questions()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            print(
+                f"[concept-memory] background question generation failed: {exc}",
+                flush=True,
+            )
+        await asyncio.sleep(30)
+
+
 @app.get("/api/daily/concepts", response_model=ConceptMemoryResponse)
 def get_memory_concepts() -> ConceptMemoryResponse:
     if not concept_memory_service:
@@ -1675,6 +1869,8 @@ def create_memory_concept(payload: ConceptCreateRequest) -> ConceptMemoryRespons
             concept=payload.concept,
             explanation=payload.explanation,
         )
+    except DuplicateConceptError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         print(f"[concept-memory] could not create concept: {exc}", flush=True)
         raise HTTPException(

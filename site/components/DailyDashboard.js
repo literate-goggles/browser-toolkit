@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import DailyChessDrills from "./DailyChessDrills";
 import DailyConceptMemory from "./DailyConceptMemory";
 import DailyMathPractice from "./DailyMathPractice";
+import DailyOpeningNames from "./DailyOpeningNames";
 import DailyTimers from "./DailyTimers";
 
 const PRACTICE_LINKS = [
@@ -192,6 +193,8 @@ export default function DailyDashboard() {
       <DailyConceptMemory />
 
       <DailyChessDrills />
+
+      <DailyOpeningNames />
 
       {loading && !digest && <LoadingDashboard />}
 

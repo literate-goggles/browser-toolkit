@@ -13,6 +13,7 @@ IELTS pipelines proxied by `sandbox.chebakov.me`.
 | `GET` | `/api/daily/math` | Return 30 daily source-grounded problems and solutions |
 | `POST` | `/api/daily/math/problems/{problemId}/solution-opened` | Save that a worked solution was opened |
 | `GET` | `/api/daily/chess` | Return five repertoire-matched game positions and five theory positions |
+| `GET` | `/api/daily/opening-names` | Sample a named Lichess opening position and optional book continuation |
 | `GET` | `/api/daily/timers` | Return today's focus timers and accumulated totals |
 | `POST` | `/api/daily/timers/{activityKey}/start` | Irreversibly start today's 25-minute activity |
 | `GET` | `/api/daily/concepts` | Return due and upcoming active-recall concepts |
@@ -45,11 +46,24 @@ Provider-backed routes have a small per-IP, in-memory hourly limit to put a
 cost ceiling around this public personal site.
 
 Concept memory uses active retrieval rather than passive rereading. A new
-concept is first due tomorrow, then successful recalls use gaps of 3, 7, 14,
-30, 60, and 120 days. A missed recall keeps the current stage and returns the
-concept tomorrow. The last successful recall marks the concept completed and
-removes it from the active queue while preserving the completion and review
-history for statistics.
+concept is first due tomorrow. On each due date, a bounded background worker
+uses GPT-5.6 Sol to generate one new indirect identification question without
+blocking concept reads or saves. The question is checked for direct target-name
+leakage and persisted before it reaches the page. Prior questions are supplied
+to the model to prevent repetition; given names and surnames use etymological
+clues. Successful recalls then use gaps of 3, 7, 14, 30, 60, and 120 days. A
+missed recall keeps the current stage and returns the concept tomorrow. The last
+successful recall marks the concept completed and removes it from the active
+queue while preserving completion and review history for statistics.
+
+Opening-name practice downloads and caches the official Lichess
+`chess-openings` `a.tsv` through `e.tsv` source files. Only exact named
+positions are sampled, so a deeper variation is never shown before its defining
+moves have occurred. Sampling is balanced across shallow, medium, and deep
+positions. Each response includes the exact name and plausible randomized
+alternatives for automatic multiple-choice scoring; correct positions remain in
+the sampling pool. When child lines exist, some drills also accept every
+represented next book move on the interactive board.
 
 Every successful writing evaluation is durably stored in
 `api/ielts_writing.sqlite3`. Each row contains the complete task, original
@@ -170,6 +184,7 @@ CONCEPT_MEMORY_DB_FILE=api/concept_memory.sqlite3
 IELTS_WRITING_DB_FILE=api/ielts_writing.sqlite3
 CHESS_COM_USERNAME=unlimited_bezdarnost
 CHESS_REPERTOIRE_FILE=api/chess_repertoire.json
+CHESS_OPENING_NAMES_CACHE_FILE=api/chess_opening_names.json
 ```
 
 A repository-root `.env` supplies the server-only OpenAI key without exposing

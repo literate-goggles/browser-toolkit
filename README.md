@@ -28,8 +28,12 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
 - server-enforced 25-minute English- and Russian-reading timers, with a
   completion chime and durable SQLite history for future statistics;
 - a SQLite-backed active-recall queue for concepts learned during the day,
-  using 1, 3, 7, 14, 30, 60, and 120-day review gaps, closed-book comparison,
-  next-day retries after misses, and automatic archival after full mastery;
+  using OpenAI-generated indirect questions that change on each due date,
+  1, 3, 7, 14, 30, 60, and 120-day review gaps, next-day retries after misses,
+  and automatic archival after full mastery;
+- random-depth, multiple-choice chess opening-name identification from
+  Lichess's CC0 opening dataset, with automatic scoring, repeatable positions,
+  optional movable-board continuation bonuses, and local progress;
 - short introductions to important car models;
 - public-domain Russian poetry for memory practice.
 

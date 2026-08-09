@@ -38,12 +38,15 @@ run at a time and only one completion per activity per day.
 
 ## Concept recall
 
-Let me save a concept or question together with the explanation I want to
-retain. Require a closed-book written recall before revealing that explanation.
-Use successful-recall gaps of 1, 3, 7, 14, 30, 60, and 120 days; a failed
-recall repeats the same step tomorrow. After the final successful recall,
-remove the concept from the active queue and retain it only as fully remembered
-history.
+Keep concept creation collapsed by default. Let me save only a target concept.
+On every due date, use the advanced OpenAI model to create a new self-contained
+identification question without writing the concept, an inflection, or an
+obvious spelling clue. For given names and surnames, ask through etymology.
+Persist that day's question, require an answer before revealing the concept,
+and never reuse an earlier question. Use successful-recall gaps of 1, 3, 7, 14,
+30, 60, and 120 days; a failed recall repeats the same step tomorrow. After the
+final successful recall, remove the concept from the active queue and retain it
+only as fully remembered history.
 
 ## Chess drills
 
@@ -70,6 +73,15 @@ from those games and five deeper positions from opening theory.
 - After completion, show the accepted continuation, engine comparisons, and,
   for a game sample, the move I played and the source game.
 - Remember prior positions and rotate across both colours and opening families.
+
+## Chess opening names
+
+Sample real named positions at varied depths from the CC0 Lichess
+`chess-openings` dataset. Show the board before the move sequence and make me
+choose the opening family and variation from plausible alternatives, then mark
+the answer automatically. After revealing the answer, sometimes ask me to play
+any known book continuation on the movable board. Keep every opening in the
+random pool after a correct answer and retain local correct/attempt statistics.
 
 ## On this day
 

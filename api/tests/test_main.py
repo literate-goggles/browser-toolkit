@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -139,13 +141,71 @@ class DailyApiTests(unittest.TestCase):
         self.assertEqual(deleted.status_code, 200)
         self.assertEqual(deleted.json()["stats"]["activeConcepts"], 0)
 
-    def test_concept_memory_rejects_blank_explanation(self) -> None:
+    def test_concept_memory_rejects_blank_concept(self) -> None:
         response = self.client.post(
             "/api/daily/concepts",
-            json={"concept": "A concept", "explanation": "   "},
+            json={"concept": "   "},
         )
 
         self.assertEqual(response.status_code, 422)
+
+    def test_due_concept_read_is_immediate_and_question_is_persisted(self) -> None:
+        now = [datetime(2026, 8, 9, 9, 0, tzinfo=timezone.utc)]
+        main.concept_memory_service = main.ConceptMemoryService(
+            database_file=(
+                Path(self.temporary_directory.name) / "question_memory.sqlite3"
+            ),
+            timezone_name="UTC",
+            now_provider=lambda: now[0],
+        )
+        main.concept_memory_service.create(concept="Шумер")
+        now[0] = datetime(2026, 8, 10, 9, 0, tzinfo=timezone.utc)
+        generation = AsyncMock(
+            return_value={
+                "question": (
+                    "Какая древняя цивилизация Южной Месопотамии создала "
+                    "одни из первых городов и клинопись?"
+                )
+            }
+        )
+
+        with patch.object(main, "_openai_json", generation):
+            first = self.client.get("/api/daily/concepts")
+            asyncio.run(main._prepare_concept_questions())
+            second = self.client.get("/api/daily/concepts")
+
+        self.assertEqual(first.status_code, 200)
+        self.assertIsNone(first.json()["dueConcepts"][0]["question"])
+        due = second.json()["dueConcepts"][0]
+        self.assertNotIn("Шумер", due["question"])
+        self.assertEqual(due["questionDate"], "2026-08-10")
+        self.assertEqual(generation.await_count, 1)
+
+    def test_duplicate_active_concept_returns_conflict(self) -> None:
+        first = self.client.post(
+            "/api/daily/concepts", json={"concept": "Шумер"}
+        )
+        duplicate = self.client.post(
+            "/api/daily/concepts", json={"concept": " шумер "}
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(duplicate.status_code, 409)
+        self.assertIn("already", duplicate.json()["detail"])
+
+    def test_recall_question_rejects_direct_concept_mentions(self) -> None:
+        self.assertTrue(
+            main._question_exposes_concept(
+                "Как развивалась шумерская письменность?",
+                "Шумер",
+            )
+        )
+        self.assertFalse(
+            main._question_exposes_concept(
+                "Какая цивилизация создала первые города Южной Месопотамии?",
+                "Шумер",
+            )
+        )
 
     def test_short_topic_discards_accidental_cue_points(self) -> None:
         generated = {

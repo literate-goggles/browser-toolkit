@@ -29,6 +29,8 @@ class MemoryConcept(StrictModel):
     id: str
     concept: str
     explanation: str
+    question: str | None
+    questionDate: str | None
     createdAt: str
     lastReviewedAt: str | None
     nextReviewDate: str
@@ -63,12 +65,23 @@ class ConceptReviewResult(StrictModel):
     memory: ConceptMemoryResponse
 
 
+class ConceptCueTarget(StrictModel):
+    id: str
+    concept: str
+    recallDate: str
+    previousQuestions: list[str]
+
+
 class ConceptNotFoundError(KeyError):
     """The requested active concept does not exist."""
 
 
 class ConceptNotDueError(RuntimeError):
     """The requested concept is not due for recall yet."""
+
+
+class DuplicateConceptError(ValueError):
+    """The same concept is already present in the active queue."""
 
 
 def _utc_iso(value: datetime) -> str:
@@ -139,6 +152,26 @@ class ConceptMemoryService:
             )
             connection.execute(
                 """
+                CREATE TABLE IF NOT EXISTS memory_concept_questions (
+                    id TEXT PRIMARY KEY,
+                    concept_id TEXT NOT NULL,
+                    recall_date TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (concept_id, recall_date),
+                    FOREIGN KEY (concept_id) REFERENCES memory_concepts (id)
+                        ON DELETE CASCADE
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS memory_concept_questions_date_index
+                ON memory_concept_questions (recall_date, created_at)
+                """
+            )
+            connection.execute(
+                """
                 CREATE INDEX IF NOT EXISTS memory_concepts_queue_index
                 ON memory_concepts (status, next_review_date, created_at)
                 """
@@ -187,6 +220,14 @@ class ConceptMemoryService:
             id=str(row["id"]),
             concept=str(row["concept"]),
             explanation=str(row["explanation"]),
+            question=(
+                str(row["question"]) if row["question"] is not None else None
+            ),
+            questionDate=(
+                str(row["question_date"])
+                if row["question_date"] is not None
+                else None
+            ),
             createdAt=str(row["created_at"]),
             lastReviewedAt=(
                 str(row["last_reviewed_at"])
@@ -211,11 +252,19 @@ class ConceptMemoryService:
         today = self._local_date(now)
         rows = connection.execute(
             """
-            SELECT *
+            SELECT
+                memory_concepts.*,
+                memory_concept_questions.question AS question,
+                memory_concept_questions.recall_date AS question_date
             FROM memory_concepts
-            WHERE status = 'active'
-            ORDER BY next_review_date ASC, created_at ASC
-            """
+            LEFT JOIN memory_concept_questions
+              ON memory_concept_questions.concept_id = memory_concepts.id
+             AND memory_concept_questions.recall_date = ?
+            WHERE memory_concepts.status = 'active'
+            ORDER BY memory_concepts.next_review_date ASC,
+                     memory_concepts.created_at ASC
+            """,
+            (today.isoformat(),),
         ).fetchall()
         concepts = [self._concept(row, today) for row in rows]
         due = [concept for concept in concepts if concept.status == "due"]
@@ -256,12 +305,32 @@ class ConceptMemoryService:
         with self._lock, self._connect() as connection:
             return self._response(connection, now)
 
-    def create(self, *, concept: str, explanation: str) -> ConceptMemoryResponse:
+    def create(
+        self,
+        *,
+        concept: str,
+        explanation: str = "",
+    ) -> ConceptMemoryResponse:
         now = self._now()
         today = self._local_date(now)
         next_review = today + timedelta(days=self.review_intervals[0])
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            active_concepts = connection.execute(
+                """
+                SELECT concept
+                FROM memory_concepts
+                WHERE status = 'active'
+                """
+            ).fetchall()
+            normalized_concept = concept.strip().casefold()
+            if any(
+                str(row["concept"]).strip().casefold() == normalized_concept
+                for row in active_concepts
+            ):
+                raise DuplicateConceptError(
+                    "This concept is already in your active recall queue."
+                )
             connection.execute(
                 """
                 INSERT INTO memory_concepts (
@@ -281,6 +350,95 @@ class ConceptMemoryService:
                 ),
             )
             return self._response(connection, now)
+
+    def due_cue_targets(self) -> list[ConceptCueTarget]:
+        now = self._now()
+        today = self._local_date(now)
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT memory_concepts.id, memory_concepts.concept
+                FROM memory_concepts
+                LEFT JOIN memory_concept_questions
+                  ON memory_concept_questions.concept_id = memory_concepts.id
+                 AND memory_concept_questions.recall_date = ?
+                WHERE memory_concepts.status = 'active'
+                  AND memory_concepts.next_review_date <= ?
+                  AND memory_concept_questions.id IS NULL
+                ORDER BY memory_concepts.next_review_date ASC,
+                         memory_concepts.created_at ASC
+                """,
+                (today.isoformat(), today.isoformat()),
+            ).fetchall()
+            targets: list[ConceptCueTarget] = []
+            for row in rows:
+                previous = connection.execute(
+                    """
+                    SELECT question
+                    FROM memory_concept_questions
+                    WHERE concept_id = ?
+                    ORDER BY recall_date DESC
+                    LIMIT 12
+                    """,
+                    (str(row["id"]),),
+                ).fetchall()
+                targets.append(
+                    ConceptCueTarget(
+                        id=str(row["id"]),
+                        concept=str(row["concept"]),
+                        recallDate=today.isoformat(),
+                        previousQuestions=[
+                            str(question["question"]) for question in previous
+                        ],
+                    )
+                )
+            return targets
+
+    def save_question(
+        self,
+        *,
+        concept_id: str,
+        recall_date: str,
+        question: str,
+    ) -> None:
+        now = self._now()
+        today = self._local_date(now).isoformat()
+        if recall_date != today:
+            return
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            active = connection.execute(
+                """
+                SELECT 1
+                FROM memory_concepts
+                WHERE id = ?
+                  AND status = 'active'
+                  AND next_review_date <= ?
+                LIMIT 1
+                """,
+                (concept_id, today),
+            ).fetchone()
+            if active is None:
+                return
+            connection.execute(
+                """
+                INSERT INTO memory_concept_questions (
+                    id,
+                    concept_id,
+                    recall_date,
+                    question,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (concept_id, recall_date) DO NOTHING
+                """,
+                (
+                    uuid.uuid4().hex,
+                    concept_id,
+                    recall_date,
+                    question,
+                    _utc_iso(now),
+                ),
+            )
 
     def review(
         self,
