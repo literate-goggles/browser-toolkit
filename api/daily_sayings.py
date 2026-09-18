@@ -68,7 +68,7 @@ class SayingCandidate(StrictModel):
 
 
 class GeneratedSayingDetail(StrictModel):
-    id: str = Field(min_length=3, max_length=120)
+    slot: int = Field(ge=1, le=6)
     translation: str = Field(min_length=2, max_length=400)
     meaning: str = Field(min_length=12, max_length=500)
     origin: str = Field(min_length=12, max_length=500)
@@ -286,11 +286,11 @@ class DailySayingService:
     ) -> list[DailySaying]:
         selected_payload = [
             {
-                "id": saying.id,
+                "slot": slot,
                 "language": saying.language,
                 "text": saying.text,
             }
-            for saying in selected
+            for slot, saying in enumerate(selected, start=1)
         ]
         result = await self.json_generator(
             messages=[
@@ -299,7 +299,7 @@ class DailySayingService:
                     "content": (
                         "You are a careful bilingual lexicographer. Explain six "
                         "proverbs for practical language study. Use plain ASCII "
-                        "quotes and apostrophes. Never change an id. Do not invent "
+                        "quotes and apostrophes. Never change a slot number. Do not invent "
                         "a specific author, date, book, or historical origin. If "
                         "the exact origin is uncertain, identify it simply as a "
                         "traditional proverb and explain when it is used."
@@ -324,17 +324,17 @@ class DailySayingService:
             max_tokens=3_500,
         )
         generated = GeneratedSayingDetails.model_validate(_plain_quotes(result))
-        expected_ids = [saying.id for saying in selected]
-        generated_ids = [detail.id for detail in generated.sayings]
-        if len(set(generated_ids)) != 6 or set(generated_ids) != set(expected_ids):
-            raise RuntimeError("OpenAI changed or omitted sampled proverb ids")
-        details_by_id = {detail.id: detail for detail in generated.sayings}
+        expected_slots = set(range(1, len(selected) + 1))
+        generated_slots = [detail.slot for detail in generated.sayings]
+        if len(set(generated_slots)) != 6 or set(generated_slots) != expected_slots:
+            raise RuntimeError("OpenAI changed or omitted sampled proverb slots")
+        details_by_slot = {detail.slot: detail for detail in generated.sayings}
         return [
             DailySaying(
                 **candidate.model_dump(),
-                **details_by_id[candidate.id].model_dump(exclude={"id"}),
+                **details_by_slot[slot].model_dump(exclude={"slot"}),
             )
-            for candidate in selected
+            for slot, candidate in enumerate(selected, start=1)
         ]
 
     async def prepare(

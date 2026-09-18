@@ -29,10 +29,6 @@ The homepage follows [DAILY.md](./DAILY.md) and combines:
   problems carry into the next daily set;
 - server-enforced 25-minute English- and Russian-reading timers, with a
   completion chime and durable SQLite history for future statistics;
-- a SQLite-backed active-recall queue for concepts learned during the day,
-  using Russian OpenAI-generated indirect questions that change on each due date,
-  1, 3, 7, 14, 30, 60, and 120-day review gaps, next-day retries after misses,
-  and automatic archival after full mastery;
 - random-depth, multiple-choice chess opening-name identification from
   Lichess's CC0 opening dataset, with automatic scoring, repeatable positions,
   optional movable-board continuation bonuses, and local progress;
@@ -53,9 +49,6 @@ Successfully evaluated IELTS writing attempts are saved in
 `api/ielts_writing.sqlite3`, including the original response, timing, criterion
 scores, feedback, and a minimal-change band-7.5 rewrite. This durable structure
 is ready for future progress charts without exposing essay history publicly.
-Concepts and their complete recall history are stored separately in
-`api/concept_memory.sqlite3`.
-
 The French beginner ranking and simple pronunciation spellings are adapted
 from the [Vocabcraft French A1 deck](https://vocabcraft.com/decks/french),
 licensed under CC BY-SA 4.0. Russian meanings, distractors, and short examples

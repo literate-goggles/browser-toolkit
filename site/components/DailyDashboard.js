@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import DailyChessDrills from "./DailyChessDrills";
-import DailyConceptMemory from "./DailyConceptMemory";
 import DailyMathPractice from "./DailyMathPractice";
 import DailyOpeningNames from "./DailyOpeningNames";
 import DailyTimers from "./DailyTimers";
@@ -197,8 +196,6 @@ export default function DailyDashboard() {
           ))}
         </div>
       </section>
-
-      <DailyConceptMemory />
 
       {SHOW_CHESS_OPENING_RECALL && <DailyChessDrills />}
 

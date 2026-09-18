@@ -45,19 +45,6 @@ then play a chime. Preserve every session in durable storage so future pages
 can show totals, streaks, and other statistics. Allow only one focus timer to
 run at a time and only one completion per activity per day.
 
-## Concept recall
-
-Keep concept creation collapsed by default. Let me save only a target concept.
-On every due date, use the advanced OpenAI model to create a new self-contained
-identification question without writing the concept, an inflection, or an
-obvious spelling clue. Write every question in Russian, regardless of the
-concept's language or origin. For given names and surnames, ask through etymology.
-Persist that day's question, require an answer before revealing the concept,
-and never reuse an earlier question. Use successful-recall gaps of 1, 3, 7, 14,
-30, 60, and 120 days; a failed recall repeats the same step tomorrow. After the
-final successful recall, remove the concept from the active queue and retain it
-only as fully remembered history.
-
 ## Chess drills
 
 Keep this repertoire-recall block hidden from the daily page until I ask to

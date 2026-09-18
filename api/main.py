@@ -374,7 +374,6 @@ async def _lifespan(_: FastAPI):
         for service in (daily_service, daily_math_service, chess_drill_service)
         if service is not None
     ]
-    scheduler_tasks.append(asyncio.create_task(_concept_question_scheduler()))
     try:
         yield
     finally:

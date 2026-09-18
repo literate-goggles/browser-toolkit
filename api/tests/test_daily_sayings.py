@@ -122,7 +122,7 @@ class DailySayingServiceTests(unittest.IsolatedAsyncioTestCase):
             return {
                 "sayings": [
                     {
-                        "id": candidate["id"],
+                        "slot": candidate["slot"],
                         "translation": (
                             "Natural English translation."
                             if candidate["language"] == "ru"
@@ -156,6 +156,16 @@ class DailySayingServiceTests(unittest.IsolatedAsyncioTestCase):
             ["ru", "ru", "ru", "en", "en", "en"],
         )
         self.assertTrue(all(saying.translation for saying in result))
+        selected_payload = json.loads(
+            self.generator.await_args.kwargs["messages"][1]["content"]
+            .split("Enrich these sampled proverbs:\n", 1)[1]
+            .split("\n\n", 1)[0]
+        )
+        self.assertEqual(
+            [candidate["slot"] for candidate in selected_payload],
+            [1, 2, 3, 4, 5, 6],
+        )
+        self.assertTrue(all("id" not in candidate for candidate in selected_payload))
         self.generator.assert_awaited_once()
 
 

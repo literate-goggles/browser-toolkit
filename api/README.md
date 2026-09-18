@@ -6,34 +6,34 @@ IELTS pipelines proxied by `sandbox.chebakov.me`.
 
 ## Endpoints
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/auth/login` | Start Google OpenID Connect with state, nonce, and PKCE |
-| `GET` | `/auth/callback/` | Verify Google identity and issue the private-site session |
-| `GET` | `/auth/check` | Validate the signed session for nginx `auth_request` |
-| `GET` | `/auth/logout` | Clear the shared daily/sandbox session |
-| `GET` | `/api/health` | Service and provider-key readiness |
-| `GET` | `/api/daily` | Return today's cached digest, generating it when stale |
-| `GET` | `/api/daily/math` | Return 27 daily source-grounded problems and solutions |
-| `POST` | `/api/daily/math/problems/{problemId}/solution-opened` | Save that a worked solution was opened |
-| `GET` | `/api/daily/chess` | Return five repertoire-matched game positions and five theory positions |
-| `GET` | `/api/daily/opening-names` | Sample a named Lichess opening position and optional book continuation |
-| `GET` | `/api/daily/timers` | Return today's focus timers and accumulated totals |
-| `POST` | `/api/daily/timers/{activityKey}/start` | Irreversibly start today's 25-minute activity |
-| `GET` | `/api/daily/concepts` | Return due and upcoming active-recall concepts |
-| `POST` | `/api/daily/concepts` | Save a concept and schedule its first recall |
-| `POST` | `/api/daily/concepts/{conceptId}/reviews` | Save a remembered/not-yet result and reschedule it |
-| `DELETE` | `/api/daily/concepts/{conceptId}` | Remove an active concept and its recall history |
-| `GET` | `/api/vocab/bans` | Fetch all shared vocab bans |
-| `POST` | `/api/vocab/bans/<sourceId>` | Ban `{ "word": … }` |
-| `DELETE` | `/api/vocab/bans/<sourceId>` | Clear one source |
-| `DELETE` | `/api/vocab/bans/<sourceId>/<word>` | Unban one word |
-| `POST` | `/api/ielts/topic` | Generate a Speaking Part 1, 2, or 3 topic with GPT-5.6 Terra |
-| `POST` | `/api/ielts/topic/audio` | Read a speaking topic with a random British ElevenLabs voice |
-| `POST` | `/api/ielts/transcribe` | Transcribe audio and assess audible delivery with OpenAI |
-| `POST` | `/api/ielts/evaluate` | Combine transcript and audio evidence into band-7.5 feedback |
-| `POST` | `/api/ielts/writing/topic` | Generate Academic visuals, General Training letters, or Task 2 essays |
-| `POST` | `/api/ielts/writing/evaluate` | Evaluate, minimally rewrite for band 7.5, and save the completed attempt |
+| Method   | Path                                                   | Purpose                                                                  |
+| -------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `GET`    | `/auth/login`                                          | Start Google OpenID Connect with state, nonce, and PKCE                  |
+| `GET`    | `/auth/callback/`                                      | Verify Google identity and issue the private-site session                |
+| `GET`    | `/auth/check`                                          | Validate the signed session for nginx `auth_request`                     |
+| `GET`    | `/auth/logout`                                         | Clear the shared daily/sandbox session                                   |
+| `GET`    | `/api/health`                                          | Service and provider-key readiness                                       |
+| `GET`    | `/api/daily`                                           | Return today's cached digest, generating it when stale                   |
+| `GET`    | `/api/daily/math`                                      | Return 27 daily source-grounded problems and solutions                   |
+| `POST`   | `/api/daily/math/problems/{problemId}/solution-opened` | Save that a worked solution was opened                                   |
+| `GET`    | `/api/daily/chess`                                     | Return five repertoire-matched game positions and five theory positions  |
+| `GET`    | `/api/daily/opening-names`                             | Sample a named Lichess opening position and optional book continuation   |
+| `GET`    | `/api/daily/timers`                                    | Return today's focus timers and accumulated totals                       |
+| `POST`   | `/api/daily/timers/{activityKey}/start`                | Irreversibly start today's 25-minute activity                            |
+| `GET`    | `/api/daily/concepts`                                  | Return due and upcoming active-recall concepts                           |
+| `POST`   | `/api/daily/concepts`                                  | Save a concept and schedule its first recall                             |
+| `POST`   | `/api/daily/concepts/{conceptId}/reviews`              | Save a remembered/not-yet result and reschedule it                       |
+| `DELETE` | `/api/daily/concepts/{conceptId}`                      | Remove an active concept and its recall history                          |
+| `GET`    | `/api/vocab/bans`                                      | Fetch all shared vocab bans                                              |
+| `POST`   | `/api/vocab/bans/<sourceId>`                           | Ban `{ "word": … }`                                                      |
+| `DELETE` | `/api/vocab/bans/<sourceId>`                           | Clear one source                                                         |
+| `DELETE` | `/api/vocab/bans/<sourceId>/<word>`                    | Unban one word                                                           |
+| `POST`   | `/api/ielts/topic`                                     | Generate a Speaking Part 1, 2, or 3 topic with GPT-5.6 Terra             |
+| `POST`   | `/api/ielts/topic/audio`                               | Read a speaking topic with a random British ElevenLabs voice             |
+| `POST`   | `/api/ielts/transcribe`                                | Transcribe audio and assess audible delivery with OpenAI                 |
+| `POST`   | `/api/ielts/evaluate`                                  | Combine transcript and audio evidence into band-7.5 feedback             |
+| `POST`   | `/api/ielts/writing/topic`                             | Generate Academic visuals, General Training letters, or Task 2 essays    |
+| `POST`   | `/api/ielts/writing/evaluate`                          | Evaluate, minimally rewrite for band 7.5, and save the completed attempt |
 
 Speaking prompts are never rendered as text. The backend selects a random
 British voice available to the ElevenLabs account and synthesizes the complete
@@ -56,17 +56,8 @@ validation. Only the configured verified email is accepted. The resulting
 cookie scoped to `.chebakov.me`, allowing nginx to protect both the daily site
 and its sandbox IELTS routes without exposing Google tokens to JavaScript.
 
-Concept memory uses active retrieval rather than passive rereading. A new
-concept is first due tomorrow. On each due date, a bounded background worker
-uses GPT-5.6 Terra to generate one new indirect identification question without
-blocking concept reads or saves. The question is checked for direct target-name
-leakage and Russian-language output before it reaches the page. Every question
-is Russian even when the concept comes from another language. Prior questions
-are supplied to the model to prevent repetition; given names and surnames use
-etymological clues. Successful recalls then use gaps of 3, 7, 14, 30, 60, and 120 days. A
-missed recall keeps the current stage and returns the concept tomorrow. The last
-successful recall marks the concept completed and removes it from the active
-queue while preserving completion and review history for statistics.
+The concept-memory routes and SQLite history are retained for data preservation,
+but the homepage panel and automatic question-generation worker are disabled.
 
 Opening-name practice downloads and caches the official Lichess
 `chess-openings` `a.tsv` through `e.tsv` source files. Only exact named
