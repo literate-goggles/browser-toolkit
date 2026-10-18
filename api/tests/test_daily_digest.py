@@ -11,6 +11,7 @@ import httpx
 
 from api.daily_digest import (
     CarItem,
+    CarSource,
     DailyDigest,
     DailyDigestService,
     SourceStatus,
@@ -165,6 +166,27 @@ def sampled_sayings() -> list[DailySaying]:
     return sayings
 
 
+def sampled_car_sources(*, car_name: str = "Citroen DS") -> list[CarSource]:
+    return [
+        CarSource(
+            name=car_name,
+            introductionYear=1955,
+            extract=(
+                f"The {car_name} was a notable production car whose engineering and "
+                "design influenced later vehicles and automotive history."
+            ),
+            sourceUrl=(
+                "https://en.wikipedia.org/wiki/" + car_name.replace(" ", "_")
+            ),
+            imageUrl=(
+                "https://upload.wikimedia.org/wikipedia/commons/"
+                + car_name.replace(" ", "_")
+                + ".jpg"
+            ),
+        )
+    ]
+
+
 class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
@@ -201,6 +223,9 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
                     ),
                 ],
             )
+        )
+        self.service._sample_car_sources = AsyncMock(
+            return_value=sampled_car_sources()
         )
 
         async def enrich_cars(cars):
@@ -322,29 +347,38 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
         self.service.sayings.prepare.assert_awaited_once()
         self.generator.assert_not_awaited()
 
-    async def test_retries_when_model_repeats_persistent_history(self) -> None:
+    async def test_allows_only_one_retry_for_a_failed_daily_refresh(self) -> None:
         self.data_file.write_text(
             json.dumps(
                 {
-                    "current": None,
+                    "current": cached_digest(),
                     "history": {
                         "research": [],
-                        "cars": ["citroen ds"],
+                        "cars": [],
                         "poems": [],
                     },
                 }
             ),
             encoding="utf-8",
         )
-        self.generator.side_effect = [
-            generated_content(car_name="Citroen DS"),
-            generated_content(car_name="Lancia Stratos"),
-        ]
+        self.generator.side_effect = RuntimeError("paid generation failed")
 
-        response = await self.service.get()
+        first = await self.service.get()
+        second = await self.service.get()
+        third = await self.service.get()
 
-        self.assertEqual(response.digest.cars[0].name, "Lancia Stratos")
+        self.assertTrue(first.stale)
+        self.assertIn("One automatic retry remains", first.warning)
+        self.assertTrue(second.stale)
+        self.assertIn("one automatic retry has been used", second.warning)
+        self.assertTrue(third.stale)
+        self.assertIn("No more automatic attempts", third.warning)
         self.assertEqual(self.generator.await_count, 2)
+        persisted = json.loads(self.data_file.read_text(encoding="utf-8"))
+        self.assertEqual(
+            persisted["refreshAttempts"],
+            {"date": "2026-07-24", "count": 2},
+        )
 
     async def test_returns_previous_digest_when_refresh_fails(self) -> None:
         state = {
@@ -413,6 +447,45 @@ class DailyDigestServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         request_params = client.get.await_args.kwargs["params"]
         self.assertEqual(request_params["pilicense"], "free")
+
+    async def test_prefilters_used_research_before_the_model_call(self) -> None:
+        client = AsyncMock()
+        entries = []
+        for index in range(5):
+            paper_id = f"2610.0000{index}"
+            entries.append(
+                {
+                    "title": f"Language model research {index}",
+                    "summary": (
+                        "This language model study reports a concrete evaluation "
+                        "of a new generative method."
+                    ),
+                    "paper": {
+                        "id": paper_id,
+                        "authors": [{"name": "Researcher"}],
+                        "publishedAt": "2026-10-18",
+                    },
+                }
+            )
+        client.get.return_value = httpx.Response(
+            200,
+            request=httpx.Request(
+                "GET", "https://huggingface.co/api/daily_papers"
+            ),
+            json=entries,
+        )
+
+        payload, _ = await self.service._fetch_hf_papers(
+            client,
+            ["2610.00000"],
+        )
+
+        selected = json.loads(payload)
+        self.assertEqual(
+            [paper["id"] for paper in selected],
+            ["2610.00001", "2610.00002", "2610.00003"],
+        )
+        self.assertNotIn("2610.00000", payload)
 
 
 if __name__ == "__main__":
